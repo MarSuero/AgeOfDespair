@@ -67,6 +67,9 @@ Prepared but NOT deployed:
   - The paired candidate was deployed once and rolled back. It moved item 98
     to `狩猎道具` and bypassed `notUseItem`, but produced no action. No project
     Lua or DLL is currently active.
+  - The next candidate is the undeployed
+    `mhws_eatshit_item98_eat_action_bridge.dll`, which targets `cEatMeat`
+    action type `2` instead of the previously rejected drink type.
 
 Known pre-existing autorun files:
 

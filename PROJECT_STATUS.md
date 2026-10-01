@@ -280,6 +280,10 @@ The first ItemData candidate loaded but still did not use. Static review found o
   produced no action. This closes the category and disabled-gate hypotheses;
   the remaining target is `_ItemRequestMsg` / `receiveGuiActionMessage` request
   generation and dispatch.
+- Goal correction from the user: the desired action is `cEatMeat`, not
+  `cUseDrinkItem`. Action type `2` is already verified to map to `cEatMeat`.
+  `native_bridge/Item98EatActionBridge.cpp` is the next candidate and
+  overrides only item 98's action-type result to `2`.
 - The read-only boundary check is
   `tools/rsz_local/verify_mc_hunter_item_evidence.py`; its required result is
   `mcHunterItem evidence boundary: PASS`.

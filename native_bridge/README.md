@@ -36,5 +36,11 @@ unchanged. It does not mutate `_DisabledItemID`, `_ItemRequestMsg`, or any
 action ID. It remains un-deployed until the runtime metadata report is
 reviewed.
 
+The current target is now the eating action, not the drink action.
+`Item98EatActionBridge.cpp` hooks
+`app.HunterItemActionTable.getItemActionTypeFromItemID(app.ItemDef.ID)` and
+overrides only public ID `98` to action type `2`, which the extracted BTable
+maps to `cEatMeat`.
+
 The source and SDK layout are checked by
 `tools/rsz_local/verify_mc_hunter_item_evidence.py`.
