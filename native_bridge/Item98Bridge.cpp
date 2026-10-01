@@ -16,7 +16,7 @@ void log_type(API::TypeDefinition* type) {
         return;
     }
 
-    auto* api = API::get();
+    auto& api = API::get();
     api->log_info("[mhws-eatshit] native metadata type=%s", type->get_full_name().c_str());
 
     for (auto* field : type->get_fields()) {
@@ -36,7 +36,7 @@ void log_type(API::TypeDefinition* type) {
             if (i != 0) {
                 signature += ", ";
             }
-            auto* param_type = static_cast<API::TypeDefinition*>(params[i].t);
+            auto* param_type = reinterpret_cast<API::TypeDefinition*>(params[i].t);
             signature += param_type != nullptr ? param_type->get_full_name() : "<unknown>";
         }
         signature += ")";
@@ -57,7 +57,7 @@ void on_present() {
         return;
     }
 
-    auto* api = API::get();
+    auto& api = API::get();
     auto* tdb = api->tdb();
 
     log_type(tdb->find_type("app.mcHunterItem"));

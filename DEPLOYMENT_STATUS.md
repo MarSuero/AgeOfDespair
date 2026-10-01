@@ -54,6 +54,9 @@ Prepared but NOT deployed:
     signature are recovered.
   - This host has no CMake or C++ compiler on `PATH`, so no DLL artifact exists.
   - `native_bridge/build.ps1` is the only supported local build entry point.
+  - `native_bridge/build-llvm-mingw.ps1` is the fallback entry point used to
+    produce the current static x64 DLL. The DLL remains outside the game
+    plugin directory.
 
 Known pre-existing autorun files:
 

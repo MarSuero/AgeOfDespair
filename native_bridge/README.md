@@ -17,6 +17,14 @@ Files:
   REFramework SDK.
 - `build.ps1`: reproducible Windows build entry point; it fails clearly when
   CMake or the SDK is unavailable.
+- `build-llvm-mingw.ps1`: fallback build entry point for the installed
+  LLVM-MinGW toolchain; it statically links the C++ runtime.
+
+The current static build was checked as x64 and exports
+`reframework_plugin_initialize` plus
+`reframework_plugin_required_version`. Its imports are limited to Windows
+system API sets and `KERNEL32.dll`; it has not been copied to the game's
+`reframework/plugins` directory.
 
 The behavioral bridge remains blocked until the metadata identifies a concrete
 request gate and its exact arguments. The first behavioral implementation must
