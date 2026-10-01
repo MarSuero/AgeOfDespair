@@ -62,6 +62,8 @@ Prepared but NOT deployed:
   - The behavior candidate
     `native_bridge/build-manual/mhws_eatshit_item98_notuse_bridge.dll` is built
     separately and remains undeployed.
+  - `scripts/feature/item98_usable_bridge.lua` is the paired runtime category
+    patch. It is prepared but not active.
 
 Known pre-existing autorun files:
 

@@ -271,6 +271,10 @@ The first ItemData candidate loaded but still did not use. Static review found o
   for this instance method, `[0]` is VM context, `[1]` is `this`, and `[2]` is
   the `app.ItemDef.ID` value. The first behavior candidate is implemented in
   `native_bridge/Item98NotUseBridge.cpp`, but remains undeployed.
+- The first behavior validation confirmed the gate hook installed but never
+  received item `98`, because the item remained under `调合素材`. The next
+  candidate combines the previously verified runtime category field bridge with
+  the native `notUseItem(98)` bypass.
 - The read-only boundary check is
   `tools/rsz_local/verify_mc_hunter_item_evidence.py`; its required result is
   `mcHunterItem evidence boundary: PASS`.
