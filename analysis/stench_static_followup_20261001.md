@@ -31,6 +31,19 @@ The safest implementation route is:
 The exact method signatures and receiver objects are still unverified. Do not
 call these names from Lua or fabricate enum values yet.
 
+The first metadata capture additionally confirmed:
+
+- `app.HunterCharacter.get_HunterStatus()` returns `app.cHunterStatus`.
+- `app.HunterBadConditions.cHunterBadConditions` exposes
+  `get_Item(app.HunterDef.BAD_CONDITION)` and
+  `get_Item(app.HunterDef.BAD_CONDITION_Fixed)`.
+- `cStench` is reached through that indexed bad-condition collection; it does
+  not expose a direct `get_Stench()` property in this build.
+
+The read-only bridge now includes `app.cHunterStatus` and both bad-condition
+enum types so the next capture can recover the receiver path and the numeric
+`STENCH` enum value.
+
 ## Prepared next evidence
 
 `native_bridge/StenchMetadataBridge.cpp` is a read-only runtime metadata bridge
