@@ -253,6 +253,8 @@ The first ItemData candidate loaded but still did not use. Static review found o
   `native_bridge/Item98Bridge.cpp` is an unbuilt, un-deployed, read-only
   metadata bridge that can report real TDB method signatures and addresses
   without inventing native call conventions.
+- The current host has no CMake or C++ compiler on `PATH`; source-layout
+  validation passes, but no DLL artifact can be produced locally yet.
 - The read-only boundary check is
   `tools/rsz_local/verify_mc_hunter_item_evidence.py`; its required result is
   `mcHunterItem evidence boundary: PASS`.

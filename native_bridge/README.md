@@ -20,3 +20,7 @@ The behavioral bridge remains blocked until the metadata identifies a concrete
 request gate and its exact arguments. The first behavioral implementation must
 only route public item `98` through the verified `cUseDrinkItem` path, with all
 other requests passed through unchanged.
+
+The current machine has no CMake or C++ compiler on `PATH`, so this checkout
+cannot produce a DLL locally yet. The source and SDK layout are still checked
+by `tools/rsz_local/verify_mc_hunter_item_evidence.py`.

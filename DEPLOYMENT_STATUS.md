@@ -52,6 +52,7 @@ Prepared but NOT deployed:
     `app.HunterCharacter`; it installs no hooks and mutates no game state.
   - The behavioral bridge remains blocked until a real request-gate address and
     signature are recovered.
+  - This host has no CMake or C++ compiler on `PATH`, so no DLL artifact exists.
 
 Known pre-existing autorun files:
 

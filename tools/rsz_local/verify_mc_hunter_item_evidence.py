@@ -13,6 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 DUMP = ROOT / "tools" / "rsz_local" / "resources" / "data" / "dumps" / "rszmhwilds.json"
 BRIDGE = ROOT / "native_bridge" / "Item98Bridge.cpp"
+CMAKE = ROOT / "native_bridge" / "CMakeLists.txt"
+SDK_API = ROOT / "tools" / "REFramework-sdk" / "include" / "reframework" / "API.hpp"
 
 
 def main() -> int:
@@ -35,6 +37,10 @@ def main() -> int:
         assert name not in serialized, f"{name} unexpectedly appears in RSZ metadata"
 
     bridge = BRIDGE.read_text(encoding="utf-8")
+    cmake = CMAKE.read_text(encoding="utf-8")
+    assert SDK_API.exists(), "official REFramework SDK checkout is missing"
+    assert "add_library(mhws_eatshit_native_bridge SHARED Item98Bridge.cpp)" in cmake
+    assert "REFramework-sdk" in cmake
     assert "reframework_plugin_initialize" in bridge
     assert "app.mcHunterItem" in bridge
     assert "get_function_raw" in bridge
@@ -43,6 +49,7 @@ def main() -> int:
 
     print("mcHunterItem evidence boundary: PASS")
     print("type entry has no fields/method signatures; read-only SDK bridge is unarmed")
+    print("official SDK checkout and CMake layout: PASS")
     return 0
 
 
