@@ -76,6 +76,8 @@ Prepared but NOT deployed:
   - `mhws_eatshit_item98_stench_bridge.dll` is built but not deployed. It is
     the first effect candidate and only activates `_Stench` after item 98
     reaches `set_UsedItemID`.
+  - That candidate was tested and rolled back. `set_UsedItemID(98)` never
+    fired, so no status mutation occurred.
 
 Known pre-existing autorun files:
 
