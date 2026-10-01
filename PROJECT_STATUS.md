@@ -275,6 +275,11 @@ The first ItemData candidate loaded but still did not use. Static review found o
   received item `98`, because the item remained under `调合素材`. The next
   candidate combines the previously verified runtime category field bridge with
   the native `notUseItem(98)` bypass.
+- The combined validation succeeded on both prerequisites: 98 appeared under
+  `狩猎道具`, and `notUseItem(98)` returned `false`. The use key still
+  produced no action. This closes the category and disabled-gate hypotheses;
+  the remaining target is `_ItemRequestMsg` / `receiveGuiActionMessage` request
+  generation and dispatch.
 - The read-only boundary check is
   `tools/rsz_local/verify_mc_hunter_item_evidence.py`; its required result is
   `mcHunterItem evidence boundary: PASS`.

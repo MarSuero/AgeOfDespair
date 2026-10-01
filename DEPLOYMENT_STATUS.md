@@ -64,6 +64,9 @@ Prepared but NOT deployed:
     separately and remains undeployed.
   - `scripts/feature/item98_usable_bridge.lua` is the paired runtime category
     patch. It is prepared but not active.
+  - The paired candidate was deployed once and rolled back. It moved item 98
+    to `狩猎道具` and bypassed `notUseItem`, but produced no action. No project
+    Lua or DLL is currently active.
 
 Known pre-existing autorun files:
 
