@@ -307,6 +307,9 @@ The first ItemData candidate loaded but still did not use. Static review found o
   `successItem`, and `onSuccessItem`. The next behavior candidate uses
   `isSubActionEnd` for `cUseDrinkItem`, then activates `_Stench` only when the
   action reports ended.
+- Latest action-end validation did not activate stench. The project is paused
+  at the user's request. Review the last action-end bridge logs before making
+  another candidate; do not request another launch yet.
 - The read-only boundary check is
   `tools/rsz_local/verify_mc_hunter_item_evidence.py`; its required result is
   `mcHunterItem evidence boundary: PASS`.

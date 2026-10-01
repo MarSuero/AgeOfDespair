@@ -80,6 +80,8 @@ Prepared but NOT deployed:
     fired, so no status mutation occurred.
   - `mhws_eatshit_item98_action_end_stench_bridge.dll` is now built but not
     deployed. It targets the action-end boundary instead.
+  - Latest action-end candidate was deployed once and rolled back. No project
+    file is currently active in the game directory.
 
 Known pre-existing autorun files:
 
