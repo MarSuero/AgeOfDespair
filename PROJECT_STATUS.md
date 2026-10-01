@@ -255,6 +255,8 @@ The first ItemData candidate loaded but still did not use. Static review found o
   without inventing native call conventions.
 - The current host has no CMake or C++ compiler on `PATH`; source-layout
   validation passes, but no DLL artifact can be produced locally yet.
+- `native_bridge/build.ps1` now provides the reproducible Windows build entry
+  point and fails explicitly when CMake or the SDK is unavailable.
 - The read-only boundary check is
   `tools/rsz_local/verify_mc_hunter_item_evidence.py`; its required result is
   `mcHunterItem evidence boundary: PASS`.

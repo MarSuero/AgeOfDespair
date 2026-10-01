@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DUMP = ROOT / "tools" / "rsz_local" / "resources" / "data" / "dumps" / "rszmhwilds.json"
 BRIDGE = ROOT / "native_bridge" / "Item98Bridge.cpp"
 CMAKE = ROOT / "native_bridge" / "CMakeLists.txt"
+BUILD = ROOT / "native_bridge" / "build.ps1"
 SDK_API = ROOT / "tools" / "REFramework-sdk" / "include" / "reframework" / "API.hpp"
 
 
@@ -38,9 +39,12 @@ def main() -> int:
 
     bridge = BRIDGE.read_text(encoding="utf-8")
     cmake = CMAKE.read_text(encoding="utf-8")
+    build = BUILD.read_text(encoding="utf-8")
     assert SDK_API.exists(), "official REFramework SDK checkout is missing"
     assert "add_library(mhws_eatshit_native_bridge SHARED Item98Bridge.cpp)" in cmake
     assert "REFramework-sdk" in cmake
+    assert "mhws_eatshit_native_bridge" in build
+    assert "CMake was not found on PATH" in build
     assert "reframework_plugin_initialize" in bridge
     assert "app.mcHunterItem" in bridge
     assert "get_function_raw" in bridge

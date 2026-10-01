@@ -53,6 +53,7 @@ Prepared but NOT deployed:
   - The behavioral bridge remains blocked until a real request-gate address and
     signature are recovered.
   - This host has no CMake or C++ compiler on `PATH`, so no DLL artifact exists.
+  - `native_bridge/build.ps1` is the only supported local build entry point.
 
 Known pre-existing autorun files:
 

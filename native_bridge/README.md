@@ -15,6 +15,8 @@ Files:
 - `Item98Bridge.cpp`: one-shot metadata logger, not deployed.
 - `CMakeLists.txt`: x64 shared-library build definition against the official
   REFramework SDK.
+- `build.ps1`: reproducible Windows build entry point; it fails clearly when
+  CMake or the SDK is unavailable.
 
 The behavioral bridge remains blocked until the metadata identifies a concrete
 request gate and its exact arguments. The first behavioral implementation must
