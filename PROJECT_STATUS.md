@@ -260,6 +260,17 @@ The first ItemData candidate loaded but still did not use. Static review found o
 - LLVM-MinGW was installed as a fallback toolchain. The read-only bridge now
   builds as an x64 statically linked DLL; the artifact exports the two
   REFramework plugin entry points and has not been deployed.
+- A single successful runtime metadata capture closed the native-signature
+  blocker. Exact `mcHunterItem` fields, methods, managed parameter types, and
+  current-build addresses are recorded in
+  `analysis/mc_hunter_item_runtime_metadata_20261001.md`.
+- The temporary metadata DLL was removed after capture. The next candidate is a
+  narrowly scoped hook of `notUseItem(app.ItemDef.ID)`; it must verify the hook
+  argument layout before skipping the gate for public item `98`.
+- The official REFramework HookManager source confirms the hook argument layout:
+  for this instance method, `[0]` is VM context, `[1]` is `this`, and `[2]` is
+  the `app.ItemDef.ID` value. The first behavior candidate is implemented in
+  `native_bridge/Item98NotUseBridge.cpp`, but remains undeployed.
 - The read-only boundary check is
   `tools/rsz_local/verify_mc_hunter_item_evidence.py`; its required result is
   `mcHunterItem evidence boundary: PASS`.

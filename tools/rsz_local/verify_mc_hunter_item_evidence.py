@@ -16,6 +16,8 @@ BRIDGE = ROOT / "native_bridge" / "Item98Bridge.cpp"
 CMAKE = ROOT / "native_bridge" / "CMakeLists.txt"
 BUILD = ROOT / "native_bridge" / "build.ps1"
 MINGW_BUILD = ROOT / "native_bridge" / "build-llvm-mingw.ps1"
+BEHAVIOR = ROOT / "native_bridge" / "Item98NotUseBridge.cpp"
+BEHAVIOR_BUILD = ROOT / "native_bridge" / "build-llvm-mingw-behavior.ps1"
 SDK_API = ROOT / "tools" / "REFramework-sdk" / "include" / "reframework" / "API.hpp"
 
 
@@ -42,6 +44,8 @@ def main() -> int:
     cmake = CMAKE.read_text(encoding="utf-8")
     build = BUILD.read_text(encoding="utf-8")
     mingw_build = MINGW_BUILD.read_text(encoding="utf-8")
+    behavior = BEHAVIOR.read_text(encoding="utf-8")
+    behavior_build = BEHAVIOR_BUILD.read_text(encoding="utf-8")
     assert SDK_API.exists(), "official REFramework SDK checkout is missing"
     assert "add_library(mhws_eatshit_native_bridge SHARED Item98Bridge.cpp)" in cmake
     assert "REFramework-sdk" in cmake
@@ -49,6 +53,12 @@ def main() -> int:
     assert "CMake was not found on PATH" in build
     assert "x86_64-w64-mingw32-clang++.exe" in mingw_build
     assert "-static-libstdc++" in mingw_build
+    assert "notUseItem" in behavior
+    assert "REFRAMEWORK_HOOK_SKIP_ORIGINAL" in behavior
+    assert "item_id != 98" in behavior
+    assert "_DisabledItemID" not in behavior
+    assert "_ItemRequestMsg" not in behavior
+    assert "build-llvm-mingw-behavior.ps1" in behavior_build or "Item98NotUseBridge.cpp" in behavior_build
     assert "reframework_plugin_initialize" in bridge
     assert "app.mcHunterItem" in bridge
     assert "get_function_raw" in bridge

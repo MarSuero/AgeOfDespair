@@ -57,6 +57,11 @@ Prepared but NOT deployed:
   - `native_bridge/build-llvm-mingw.ps1` is the fallback entry point used to
     produce the current static x64 DLL. The DLL remains outside the game
     plugin directory.
+  - The metadata DLL was deployed once, captured the real method metadata, and
+    was removed. No project DLL is currently active.
+  - The behavior candidate
+    `native_bridge/build-manual/mhws_eatshit_item98_notuse_bridge.dll` is built
+    separately and remains undeployed.
 
 Known pre-existing autorun files:
 

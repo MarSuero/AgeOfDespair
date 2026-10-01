@@ -19,6 +19,9 @@ Files:
   CMake or the SDK is unavailable.
 - `build-llvm-mingw.ps1`: fallback build entry point for the installed
   LLVM-MinGW toolchain; it statically links the C++ runtime.
+- `Item98NotUseBridge.cpp`: first behavioral candidate, limited to the
+  evidence-backed `notUseItem(app.ItemDef.ID)` gate.
+- `build-llvm-mingw-behavior.ps1`: builds that behavioral candidate.
 
 The current static build was checked as x64 and exports
 `reframework_plugin_initialize` plus
@@ -26,11 +29,12 @@ The current static build was checked as x64 and exports
 system API sets and `KERNEL32.dll`; it has not been copied to the game's
 `reframework/plugins` directory.
 
-The behavioral bridge remains blocked until the metadata identifies a concrete
-request gate and its exact arguments. The first behavioral implementation must
-only route public item `98` through the verified `cUseDrinkItem` path, with all
-other requests passed through unchanged.
+The first behavioral candidate hooks only
+`app.mcHunterItem.notUseItem(app.ItemDef.ID)`. It skips the original gate for
+public ID `98` and returns `false`; every other item calls the original method
+unchanged. It does not mutate `_DisabledItemID`, `_ItemRequestMsg`, or any
+action ID. It remains un-deployed until the runtime metadata report is
+reviewed.
 
-The current machine has no CMake or C++ compiler on `PATH`, so this checkout
-cannot produce a DLL locally yet. The source and SDK layout are still checked
-by `tools/rsz_local/verify_mc_hunter_item_evidence.py`.
+The source and SDK layout are checked by
+`tools/rsz_local/verify_mc_hunter_item_evidence.py`.
