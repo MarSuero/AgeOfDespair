@@ -295,6 +295,10 @@ The first ItemData candidate loaded but still did not use. Static review found o
   `cStench` through `get_Item(app.HunterDef.BAD_CONDITION)`. The next read only
   adds `cHunterStatus` and both bad-condition enum types to recover the receiver
   path and `STENCH` numeric value.
+- The first effect candidate is now compiled:
+  `native_bridge/Item98StenchBridge.cpp` hooks `set_UsedItemID(98)` and calls
+  `get_HunterStatus() -> get_BadConditions() -> _Stench -> requestActivate()`.
+  It remains undeployed pending one focused validation.
 - The read-only boundary check is
   `tools/rsz_local/verify_mc_hunter_item_evidence.py`; its required result is
   `mcHunterItem evidence boundary: PASS`.

@@ -73,6 +73,9 @@ Prepared but NOT deployed:
   - `mhws_eatshit_stench_metadata_bridge.dll` is prepared but not deployed.
   - Its target is the player-side `cStench`/`requestBadCondition` chain, not
     the monster-side `Koyasi` condition.
+  - `mhws_eatshit_item98_stench_bridge.dll` is built but not deployed. It is
+    the first effect candidate and only activates `_Stench` after item 98
+    reaches `set_UsedItemID`.
 
 Known pre-existing autorun files:
 

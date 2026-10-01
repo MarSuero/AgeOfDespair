@@ -47,5 +47,9 @@ maps to `cEatMeat`.
 `MODORIDAMA` cleanup path. It is not deployed and does not install hooks or
 apply status.
 
+`Item98StenchBridge.cpp` is the first behavior candidate. It activates the
+existing player-side `_Stench` object after public item `98` reaches
+`set_UsedItemID`; it does not replace the game's cleanup path.
+
 The source and SDK layout are checked by
 `tools/rsz_local/verify_mc_hunter_item_evidence.py`.

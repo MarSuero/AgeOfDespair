@@ -61,15 +61,11 @@ void on_present() {
     auto& api = API::get();
     auto* tdb = api->tdb();
     const char* names[] = {
-        "app.HunterCharacter",
         "app.cHunterStatus",
         "app.HunterBadConditions",
         "app.HunterBadConditions.cHunterBadConditions",
         "app.HunterBadConditions.cHunterBadConditionBase",
         "app.HunterBadConditions.cStench",
-        "app.HunterStatusWatchers",
-        "app.HunterStatusWatchers.cItemInfo",
-        "app.HunterStatusWatchers.cShell",
         "app.HunterDef.BAD_CONDITION",
         "app.HunterDef.BAD_CONDITION_Fixed",
     };
