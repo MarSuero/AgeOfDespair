@@ -78,6 +78,8 @@ Prepared but NOT deployed:
     reaches `set_UsedItemID`.
   - That candidate was tested and rolled back. `set_UsedItemID(98)` never
     fired, so no status mutation occurred.
+  - `mhws_eatshit_item98_action_end_stench_bridge.dll` is now built but not
+    deployed. It targets the action-end boundary instead.
 
 Known pre-existing autorun files:
 

@@ -303,6 +303,10 @@ The first ItemData candidate loaded but still did not use. Static review found o
   `set_UsedItemID(98)` never fired and stench was not activated. The current
   action animation is therefore not a reliable use-success boundary; the next
   candidate must hook the actual action-completion/success path.
+- Static action analysis found `cHunterSubActionBase.isSubActionEnd`,
+  `successItem`, and `onSuccessItem`. The next behavior candidate uses
+  `isSubActionEnd` for `cUseDrinkItem`, then activates `_Stench` only when the
+  action reports ended.
 - The read-only boundary check is
   `tools/rsz_local/verify_mc_hunter_item_evidence.py`; its required result is
   `mcHunterItem evidence boundary: PASS`.

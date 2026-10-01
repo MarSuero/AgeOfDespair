@@ -12,3 +12,9 @@ The next evidence target is the actual player sub-action implementation:
 
 `native_bridge/UseActionMetadataBridge.cpp` is a read-only metadata bridge for
 those types. It installs no hooks and applies no item or status mutation.
+
+Static follow-up found the executable method names `successItem`,
+`onSuccessItem`, and `isSubActionEnd`. The first behavior candidate now hooks
+`cHunterSubActionBase.isSubActionEnd`, filters for
+`app.PlayerCommonSubAction.cUseDrinkItem` while item 98 is selected, and
+activates player stench only when the end method returns true.
