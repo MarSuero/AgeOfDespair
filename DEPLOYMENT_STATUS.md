@@ -70,6 +70,9 @@ Prepared but NOT deployed:
   - The next candidate is the undeployed
     `mhws_eatshit_item98_eat_action_bridge.dll`, which targets `cEatMeat`
     action type `2` instead of the previously rejected drink type.
+  - `mhws_eatshit_stench_metadata_bridge.dll` is prepared but not deployed.
+  - Its target is the player-side `cStench`/`requestBadCondition` chain, not
+    the monster-side `Koyasi` condition.
 
 Known pre-existing autorun files:
 

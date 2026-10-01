@@ -284,6 +284,12 @@ The first ItemData candidate loaded but still did not use. Static review found o
   `cUseDrinkItem`. Action type `2` is already verified to map to `cEatMeat`.
   `native_bridge/Item98EatActionBridge.cpp` is the next candidate and
   overrides only item 98's action-type result to `2`.
+- User correction: the requested effect is the player-side
+  `app.HunterBadConditions.cStench` caused by 桃毛兽王, not monster repelling.
+  Static executable strings identify `requestBadCondition`, `cureBadCondition`,
+  `checkSkillStench`, `STENCH`, `PL_DEBUF_STENCH`, `MODORIDAMA`, and
+  `CleanBadConditions`. The read-only bridge now targets hunter status types;
+  no status effect is implemented or deployed.
 - The read-only boundary check is
   `tools/rsz_local/verify_mc_hunter_item_evidence.py`; its required result is
   `mcHunterItem evidence boundary: PASS`.

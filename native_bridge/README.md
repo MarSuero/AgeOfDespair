@@ -42,5 +42,10 @@ The current target is now the eating action, not the drink action.
 overrides only public ID `98` to action type `2`, which the extracted BTable
 maps to `cEatMeat`.
 
+`StenchMetadataBridge.cpp` is a separate read-only bridge for the hunter-side
+`cStench` condition, `requestBadCondition`/`cureBadCondition`, and the
+`MODORIDAMA` cleanup path. It is not deployed and does not install hooks or
+apply status.
+
 The source and SDK layout are checked by
 `tools/rsz_local/verify_mc_hunter_item_evidence.py`.
