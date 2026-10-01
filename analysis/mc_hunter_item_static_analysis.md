@@ -14,9 +14,11 @@ runtime names `_ItemRequestMsg`, `_DisabledItemID`, `_DisabledItemIDLock`,
 recoverable native signatures.
 
 The executable string heap contains the method names, but no declaring type,
-function address, x64 parameter list, or call-site relationship. The current
-workspace also has no REFramework native-plugin SDK, import library, PDB, or
-disassembler capable of recovering those facts.
+function address, x64 parameter list, or call-site relationship. The official
+REFramework native-plugin SDK is now available under `tools/REFramework-sdk`;
+it can expose runtime TDB metadata and method addresses, but it does not
+contain Wilds-specific request signatures or a PDB. The workspace still has no
+native disassembler capable of recovering those facts offline.
 
 ## Confirmed facts
 
@@ -52,3 +54,7 @@ the request state inconsistent.
 
 Until those are available, the safe implementation state is unchanged: all
 project probes and candidates remain disabled, and no game launch is required.
+
+The unbuilt read-only SDK bridge at `native_bridge/Item98Bridge.cpp` is prepared
+to collect that metadata in one targeted run. It installs no hooks and does not
+mutate the game.

@@ -1,13 +1,22 @@
 # Native Bridge Status
 
-No DLL is present yet.
+The directory now contains an unbuilt, un-deployed read-only metadata bridge.
+It uses the official REFramework SDK checkout in `tools/REFramework-sdk` and
+asks REFramework's TDB for the actual `app.mcHunterItem` and
+`app.HunterCharacter` methods, parameters, return types, field offsets, and
+function addresses.
 
-The bridge is intentionally blocked until a concrete native request-gate
-address and signature are recovered for Monster Hunter Wilds `1.42.0.2`.
-Creating a guessed hook would violate the project handoff rules and could
-crash the game.
+It does not install hooks, mutate objects, touch ItemData, or route item `98`.
+That is deliberate: the next safe step is recovering the real request method
+signature from the game metadata before writing a behavioral hook.
 
-When the missing evidence is available, this directory is the isolated
-location for the x64 REFramework plugin. The first implementation must only
-route public item `98` through the already verified `cUseDrinkItem` path, with
-all other item requests passed through unchanged.
+Files:
+
+- `Item98Bridge.cpp`: one-shot metadata logger, not deployed.
+- `CMakeLists.txt`: x64 shared-library build definition against the official
+  REFramework SDK.
+
+The behavioral bridge remains blocked until the metadata identifies a concrete
+request gate and its exact arguments. The first behavioral implementation must
+only route public item `98` through the verified `cUseDrinkItem` path, with all
+other requests passed through unchanged.

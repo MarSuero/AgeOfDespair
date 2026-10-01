@@ -249,6 +249,10 @@ The first ItemData candidate loaded but still did not use. Static review found o
   is available in this workspace.
 - A guessed DLL hook would violate the handoff rules. No DLL was created or
   deployed, and the disabled Lua candidates remain untouched.
+- The official REFramework SDK is now available at `tools/REFramework-sdk`.
+  `native_bridge/Item98Bridge.cpp` is an unbuilt, un-deployed, read-only
+  metadata bridge that can report real TDB method signatures and addresses
+  without inventing native call conventions.
 - The read-only boundary check is
   `tools/rsz_local/verify_mc_hunter_item_evidence.py`; its required result is
   `mcHunterItem evidence boundary: PASS`.

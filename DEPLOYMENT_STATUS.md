@@ -46,10 +46,12 @@ Prepared but NOT deployed:
   - Corrected read-only gate probe. Deployment and rollback steps:
     `docs/readonly_runtime_read_plan.md`.
 - `native_bridge/`
-  - Static status only. No DLL has been built or copied to
-    `reframework/plugins`.
-  - The native bridge is blocked until a real request-gate address and
-    signature are recovered. No game validation is requested by this artifact.
+  - `Item98Bridge.cpp` and `CMakeLists.txt` are prepared but unbuilt and
+    undeployed.
+  - The bridge only reads REFramework TDB metadata for `app.mcHunterItem` and
+    `app.HunterCharacter`; it installs no hooks and mutates no game state.
+  - The behavioral bridge remains blocked until a real request-gate address and
+    signature are recovered.
 
 Known pre-existing autorun files:
 
