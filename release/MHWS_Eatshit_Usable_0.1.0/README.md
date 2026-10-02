@@ -1,18 +1,16 @@
 # MHWS Eatshit Usable 0.1.0
 
-This package makes public item `98` (`怪物的粪`) appear under `狩猎道具`
-and routes it through the currently accepted drink-like use animation.
+这个 Mod 让公共物品 ID `98`「怪物的粪」出现在「狩猎道具」栏，并沿用当前已经验证的喝药样使用动作。
 
-## Compatibility
+## 兼容环境
 
-- Monster Hunter Wilds `1.42.0.2`
-- REFramework `v1.5.9.1` or compatible native-plugin API
-- PC version
+- 怪物猎人：荒野 `1.42.0.2`
+- REFramework `v1.5.9.1` 或兼容的原生插件接口
+- Steam PC 版
 
-## Install
+## 安装
 
-Copy the `reframework` folder into the Monster Hunter Wilds installation
-directory and merge the folders:
+将压缩包里的 `reframework` 文件夹复制到游戏安装目录并合并文件夹：
 
 ```text
 reframework/autorun/mhws_eatshit_item98_usable_bridge.lua
@@ -20,14 +18,12 @@ reframework/plugins/mhws_eatshit_item98_notuse_bridge.dll
 reframework/plugins/mhws_eatshit_item98_eat_action_bridge.dll
 ```
 
-Restart the game after installing.
+安装后重新启动游戏。
 
-## Uninstall
+## 卸载
 
-Delete only the three files listed above. This package does not modify PAK
-archives, saves, or original game files.
+只删除上面列出的三个文件即可。本 Mod 不会修改 PAK、存档或原始游戏文件。
 
-## Scope
+## 当前范围
 
-This release does not implement the player-side `恶臭` status or Wide-Range.
-The current item animation is intentionally preserved.
+本版本暂未实现玩家侧「恶臭」状态，也未实现广域化。当前物品动作保持已经验证过的表现。
