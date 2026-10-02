@@ -1,0 +1,84 @@
+local completed = false
+local frame_count = 0
+local wait_frames = 300
+
+local function describe(value)
+    if value == nil then
+        return "nil"
+    end
+
+    local ok, definition = pcall(function()
+        return value:get_type_definition()
+    end)
+    if ok and definition ~= nil then
+        local name_ok, name = pcall(function()
+            return definition:get_full_name()
+        end)
+        if name_ok then
+            return tostring(value) .. " type=" .. tostring(name)
+        end
+    end
+    return tostring(value)
+end
+
+local function call_with(object, method, label, item_id)
+    local ok, result = pcall(function()
+        return method(object, item_id)
+    end)
+    log.info(string.format(
+        "[mhws-eatshit] item-action-type call=%s id=%d ok=%s result=%s",
+        label,
+        item_id,
+        tostring(ok),
+        describe(result)
+    ))
+end
+
+re.on_frame(function()
+    if completed then
+        return
+    end
+
+    frame_count = frame_count + 1
+    if frame_count < wait_frames then
+        return
+    end
+
+    completed = true
+
+    local type_ok, definition = pcall(function()
+        return sdk.find_type_definition("app.HunterItemActionTable")
+    end)
+    if not type_ok or definition == nil then
+        log.error("[mhws-eatshit] item-action-type type lookup failed")
+        return
+    end
+
+    local method_ok, method = pcall(function()
+        return definition:get_method("getItemActionTypeFromItemID")
+    end)
+    log.info(string.format(
+        "[mhws-eatshit] item-action-type method_lookup_ok=%s method=%s",
+        tostring(method_ok),
+        tostring(method ~= nil)
+    ))
+    if not method_ok or method == nil then
+        return
+    end
+
+    local singleton_ok, table_object = pcall(function()
+        return sdk.get_managed_singleton("app.HunterItemActionTable")
+    end)
+    log.info(string.format(
+        "[mhws-eatshit] item-action-type singleton_ok=%s object=%s",
+        tostring(singleton_ok),
+        describe(table_object)
+    ))
+
+    for _, item_id in ipairs({5, 98, 99}) do
+        if singleton_ok and table_object ~= nil then
+            call_with(table_object, method, "singleton", item_id)
+        end
+        call_with(nil, method, "static", item_id)
+    end
+end)

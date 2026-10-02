@@ -1,0 +1,83 @@
+local done = false
+local frame_count = 0
+local start_clock = os.clock()
+
+local function safe(fn, ...)
+    local r = { pcall(fn, ...) }
+    if not r[1] then return false, tostring(r[2]) end
+    return true, r[2]
+end
+
+local function inspect(label, object)
+    if object == nil then
+        log.info("[mhws-eatshit] MCITEM " .. label .. " nil")
+        return
+    end
+    local t_ok, td = safe(function() return object:get_type_definition() end)
+    if not t_ok or td == nil then return end
+    local n_ok, n = safe(function() return td:get_full_name() end)
+    log.info("[mhws-eatshit] MCITEM " .. label .. " type=" .. tostring(n_ok and n or "<unknown>"))
+
+    local f_ok, fields = safe(function() return td:get_fields() end)
+    if f_ok and fields then
+        for _, field in ipairs(fields) do
+            local name_ok, name = safe(function() return field:get_name() end)
+            if name_ok and name and string.match(string.lower(name), "item")
+                or name_ok and name and string.match(string.lower(name), "request")
+                or name_ok and name and string.match(string.lower(name), "disable")
+                or name_ok and name and string.match(string.lower(name), "lock") then
+                local value_ok, value = safe(function() return object:get_field(name) end)
+                log.info(string.format(
+                    "[mhws-eatshit] MCITEM %s field=%s ok=%s value=%s",
+                    label, tostring(name), tostring(value_ok), tostring(value)
+                ))
+                if value_ok and value ~= nil then
+                    inspect(label .. "." .. name, value)
+                end
+            end
+        end
+    end
+
+    local m_ok, methods = safe(function() return td:get_methods() end)
+    if m_ok and methods then
+        for _, method in ipairs(methods) do
+            local name_ok, name = safe(function() return method:get_name() end)
+            if name_ok and name and (
+                string.match(string.lower(name), "item")
+                or string.match(string.lower(name), "request")
+                or string.match(string.lower(name), "disable")
+            ) then
+                log.info(string.format(
+                    "[mhws-eatshit] MCITEM %s method=%s",
+                    label, tostring(name)
+                ))
+            end
+        end
+    end
+end
+
+re.on_frame(function()
+    if done then return end
+    frame_count = frame_count + 1
+    if frame_count % 30 ~= 0 then return end
+    if os.clock() - start_clock > 600 then
+        done = true
+        log.info("[mhws-eatshit] MCITEM timeout")
+        return
+    end
+
+    local ok, manager = safe(function()
+        return sdk.get_managed_singleton("app.PlayerManager")
+    end)
+    if not ok or manager == nil then return end
+    local master_ok, master = safe(function() return manager:call("getMasterPlayer") end)
+    if not master_ok or master == nil then return end
+    local char_ok, character = safe(function() return master:call("get_Character") end)
+    if not char_ok or character == nil then return end
+    local item_ok, item = safe(function() return character:call("get_Item") end)
+    if not item_ok or item == nil then return end
+
+    done = true
+    log.info("[mhws-eatshit] MCITEM player/item acquired")
+    inspect("mcHunterItem", item)
+end)

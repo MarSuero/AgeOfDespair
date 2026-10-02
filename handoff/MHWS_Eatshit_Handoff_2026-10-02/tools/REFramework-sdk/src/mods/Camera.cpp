@@ -1,0 +1,217 @@
+#include <sdk/SceneManager.hpp>
+#include <sdk/RETypeDB.hpp>
+#include <sdk/GameIdentity.hpp>
+
+#include "Camera.hpp"
+
+using namespace utility;
+
+void Camera::on_config_load(const Config& cfg) {
+    for (IModValue& option : m_options) {
+        option.config_load(cfg);
+    }
+}
+
+void Camera::on_config_save(Config& cfg) {
+    for (IModValue& option : m_options) {
+        option.config_save(cfg);
+    }
+}
+
+void Camera::on_draw_ui() {
+    ImGui::SetNextItemOpen(false, ImGuiCond_::ImGuiCond_FirstUseEver);
+    if (!ImGui::CollapsingHeader(get_name().data())) {
+        return;
+    }
+
+    ImGui::TextWrapped("Make sure to tick \"Enabled\" for any of the below settings to take effect.");
+
+    if (m_enabled->draw("Enabled") && !m_enabled->value()) {
+        on_disabled();
+    }
+
+    if (m_disable_vignette->draw("Disable Vignette") && !m_disable_vignette->value()) {
+        set_vignette_type(via::render::ToneMapping::Vignetting::Enable);
+    }
+
+    // RE8 and above have vignetting brightness
+    if (sdk::GameIdentity::get().tdb_ver() >= 69) {
+        m_vignette_brightness->draw("Vignette Brightness");
+    }
+
+    if (sdk::GameIdentity::get().is_re8()) {
+        m_fov->draw("RE8 FOV");
+        m_fov_aiming->draw("RE8 Aiming FOV");
+    }
+
+    ImGui::Separator();
+    ImGui::TextWrapped("These below settings are separate and do not require \"Enabled\" to be ticked.");
+
+    m_use_custom_global_fov->draw("Use Custom Global FOV");
+    m_global_fov->draw("Global FOV");
+}
+
+void Camera::on_update_transform(RETransform* transform) {
+    if (sdk::GameIdentity::get().is_re8()) {
+        if (!m_enabled->value()) {
+            return;
+        }
+
+        // Cache off "AppPropsManager" once.
+        if (m_props_manager == nullptr) {
+            m_props_manager = reframework::get_globals()->get<AppPropsManager>(game_namespace("PropsManager"));
+            if (m_props_manager == nullptr) {
+                return;
+            }
+        }
+
+        const auto valid_player = reset_ptr(m_player, m_props_manager->player,
+            [&](bool valid) {
+                m_player_configure = nullptr;
+            }
+        );
+
+        // Run on player transform.
+        if (valid_player) {
+            if (m_player->get_transform() != nullptr && m_player->get_transform() == transform) {
+                on_player_transform(transform);
+            }
+        }
+    }
+}
+
+void Camera::on_pre_application_entry(void* entry, const char* name, size_t hash) {
+    if (hash == "BeginRendering"_fnv) {
+        if (m_use_custom_global_fov->value()) {
+            auto camera = sdk::get_primary_camera();
+
+            if (camera != nullptr) {
+                static auto set_fov = sdk::find_method_definition("via.Camera", "set_FOV");
+
+                if (set_fov != nullptr) {
+                    set_fov->call<void*>(sdk::get_thread_context(), camera, m_global_fov->value());
+                }
+            }
+        }
+    }
+}
+
+void Camera::on_application_entry(void* entry, const char* name, size_t hash) {
+    if (!m_enabled->value()) {
+        return;
+    }
+
+    if (hash == "LockScene"_fnv) {
+        const auto valid_camera = reset_ptr(m_camera, sdk::get_primary_camera(),
+            [&](bool valid) {
+                m_tone_map = nullptr;
+            }
+        );
+
+        if (valid_camera) {
+            if (const auto owner = m_camera->get_game_object(); owner != nullptr && owner->get_transform() != nullptr) {
+                update_vignetting();
+            }
+        }
+    }
+}
+
+void Camera::update_vignetting() noexcept {
+    // Cache off "RenderToneMapping" once (if camera ptr changes, this will be cached again).
+    if (m_tone_map == nullptr) {
+        m_tone_map = m_camera->find<RenderToneMapping>("via.render.ToneMapping");
+    }
+
+    m_tone_map_internal = (m_tone_map != nullptr) ? m_tone_map->toneMappingInternal : nullptr;
+    
+    if (m_disable_vignette->value()) {
+        set_vignette_type(via::render::ToneMapping::Vignetting::Disable);
+    } 
+    else if (sdk::GameIdentity::get().tdb_ver() >= 69) {
+        set_vignette_brightness(m_vignette_brightness->value());
+    }
+}
+
+void Camera::on_player_transform(RETransform* transform) noexcept {
+    if (sdk::GameIdentity::get().is_re8()) {
+        // Cache off "AppPlayerConfigure" once (if player ptr changes, this will be cached again).
+        if (m_player_configure == nullptr) {
+            m_player_configure = transform->find<AppPlayerConfigure>(game_namespace("PlayerConfigure"));
+        }
+
+        if (m_player_configure != nullptr) {
+            m_player_camera_params = [&]() -> AppPlayerCameraParameter* {
+                const auto player_configuration = m_player_configure->playerConfiguration;
+                if (player_configuration == nullptr) {
+                    return nullptr;
+                }
+
+                const auto cam_configuration = player_configuration->cameraConfiguration;
+                if (cam_configuration == nullptr) {
+                    return nullptr;
+                }
+
+                const auto player_cam_configuration = cam_configuration->playerCameraConfiguration;
+                if (player_cam_configuration == nullptr) {
+                    return nullptr;
+                }
+
+                const auto player_cam_configuration_base = player_cam_configuration->playerCameraConfigurationBase;
+                if (player_cam_configuration_base == nullptr) {
+                    return nullptr;
+                }
+
+                return player_cam_configuration_base->playerCameraParameter;
+            }();
+        }
+
+        set_fov(m_fov->value(), m_fov_aiming->value());
+    }
+}
+
+void Camera::on_disabled() noexcept {
+    set_vignette_type(via::render::ToneMapping::Vignetting::Enable);
+    set_vignette_brightness(m_vignette_brightness->default_value());
+
+    if (sdk::GameIdentity::get().is_re8()) {
+        set_fov(m_fov->default_value(), m_fov_aiming->default_value());
+    }
+}
+
+void Camera::set_vignette_type(via::render::ToneMapping::Vignetting value) noexcept {
+    if (m_tone_map == nullptr) {
+        return;
+    }
+
+    static auto set_vignetting_method = sdk::find_method_definition("via.render.ToneMapping", "setVignetting");
+
+    if (set_vignetting_method != nullptr) {
+        set_vignetting_method->call<void*>(sdk::get_thread_context(), m_tone_map, value);
+    }
+}
+
+void Camera::set_vignette_brightness(float value) noexcept {
+    if (m_tone_map == nullptr) {
+        return;
+    }
+
+    static auto set_vignetting_brightness_method = sdk::find_method_definition("via.render.ToneMapping", "set_VignettingBrightness");
+
+    if (set_vignetting_brightness_method != nullptr) {
+        set_vignetting_brightness_method->call<void*>(sdk::get_thread_context(), m_tone_map, value);
+    } else {
+        // Not a TDB method.
+        ((::REManagedObject*)m_tone_map)->call_method("setVignettingBrightness", (double)value);
+    }
+}
+
+void Camera::set_fov(float fov, float aiming_fov) noexcept {
+    if (sdk::GameIdentity::get().is_re8()) {
+        if (m_player_camera_params == nullptr) {
+            return;
+        }
+    
+        m_player_camera_params->DefaultFOV = fov;
+        m_player_camera_params->AimmingFOV = aiming_fov;
+    }
+}

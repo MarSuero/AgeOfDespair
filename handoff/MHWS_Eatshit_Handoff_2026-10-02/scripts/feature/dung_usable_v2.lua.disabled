@@ -1,0 +1,181 @@
+-- mhws-eatshit: make 怪物的粪 (public item 98) a usable 狩猎道具
+--
+-- GOAL (user-stated, this is the only goal of this script):
+--   1. Move item 98 out of 调合素材 and into 狩猎道具 in the item bar.
+--   2. Make pressing the use key perform the same consume action as 秘药.
+--
+-- WHY THIS APPROACH
+--   PROJECT_STATUS.md records the only experiment that ever actually worked:
+--   changing the runtime fields "_TextType=1 _Window=true _Eatable=true" made
+--   item 98 appear in the item bar under 狩猎道具. That is also the
+--   precondition for the use key -- an item filed under 调合素材 is not in the
+--   item bar, so it cannot be selected at all.
+--
+--   Every PAK-based attempt was ineffective for a separate reason: REFramework
+--   redirected the candidate PAK onto slot patch_026, which does not exist (the
+--   highest real slot is patch_017), so the game never read it. That is why the
+--   game always showed the stock _TextType=5.
+--
+-- SAFETY
+--   Runtime-only. No PAK, no save, no archive is touched. Values are written to a
+--   live ItemData object and are gone when the game exits. Set REVERT=true below
+--   to restore the original values instead.
+--
+--   Every write is verified by reading the field back and logging before/after.
+
+local APPLY = true          -- set false to only observe
+local REVERT = false        -- set true to restore originals
+local WAIT_FRAMES = 300
+local TARGET_ID = 98
+
+-- Values taken from 秘药 (item 4), the reference consumable, and from the set
+-- PROJECT_STATUS.md records as the working combination.
+local TARGET_FIELDS = {
+    { name = "_TextType", value = 1 },
+    { name = "_Window", value = true },
+    { name = "_Eatable", value = true },
+    { name = "_Heal", value = true },
+    { name = "_EnableOnRaptor", value = true },
+}
+
+local done = false
+local frame_count = 0
+
+local function safe(fn, ...)
+    local r = { pcall(fn, ...) }
+    if not r[1] then return false, tostring(r[2]) end
+    return true, r[2], r[3]
+end
+
+local function read_field(instance, field_name)
+    local ok, value = safe(function()
+        return instance:get_field(field_name)
+    end)
+    if ok then return value, nil end
+    -- Fall back to direct member access, which REFramework also supports.
+    local ok2, value2 = safe(function()
+        return instance[field_name]
+    end)
+    return value2, (ok2 and nil or value)
+end
+
+local function write_field(instance, field_name, value)
+    -- Try the direct member assignment used by the historical working script,
+    -- then the explicit set_field API. Report whichever worked.
+    local ok, err = safe(function()
+        instance[field_name] = value
+        return true
+    end)
+    if ok then
+        return true, "member"
+    end
+
+    local ok2, err2 = safe(function()
+        instance:set_field(field_name, value)
+        return true
+    end)
+    if ok2 then
+        return true, "set_field"
+    end
+
+    return false, tostring(err) .. " / " .. tostring(err2)
+end
+
+local function get_item_data(item_id)
+    local def_ok, item_def = safe(function()
+        return sdk.find_type_definition("app.ItemDef")
+    end)
+    if not def_ok or item_def == nil then
+        return nil, "app.ItemDef unavailable"
+    end
+
+    local m_ok, data_method = safe(function()
+        return item_def:get_method("Data(app.ItemDef.ID)")
+    end)
+    if not m_ok or data_method == nil then
+        return nil, "ItemDef.Data method missing"
+    end
+
+    local c_ok, data = safe(function()
+        return data_method:call(nil, item_id)
+    end)
+    if not c_ok or data == nil then
+        return nil, "ItemDef.Data returned nil"
+    end
+
+    return data, nil
+end
+
+re.on_frame(function()
+    if done then return end
+    frame_count = frame_count + 1
+    if frame_count < WAIT_FRAMES then return end
+    done = true
+
+    -- Confirm identity first, so a log line can never be misread.
+    local name_ok, name_value = safe(function()
+        local item_def = sdk.find_type_definition("app.ItemDef")
+        local m = item_def:get_method("NameString(app.ItemDef.ID)")
+        return m:call(nil, TARGET_ID)
+    end)
+    log.info(string.format(
+        "[mhws-eatshit] target id=%d name=%s",
+        TARGET_ID, tostring(name_ok and name_value or "<lookup failed>")))
+
+    local data, err = get_item_data(TARGET_ID)
+    if data == nil then
+        log.error("[mhws-eatshit] cannot get ItemData for item 98: " .. tostring(err))
+        return
+    end
+
+    -- Log the current state of every field we care about.
+    local before = {}
+    for _, entry in ipairs(TARGET_FIELDS) do
+        local value = read_field(data, entry.name)
+        before[entry.name] = value
+    end
+    local parts = {}
+    for _, entry in ipairs(TARGET_FIELDS) do
+        parts[#parts + 1] = string.format("%s=%s", entry.name, tostring(before[entry.name]))
+    end
+    log.info("[mhws-eatshit] item 98 before: " .. table.concat(parts, " "))
+
+    if not APPLY then
+        log.info("[mhws-eatshit] APPLY=false, observation only")
+        return
+    end
+
+    -- Apply (or revert) each field, then read it back to prove the write landed.
+    for _, entry in ipairs(TARGET_FIELDS) do
+        local new_value = entry.value
+        if REVERT then
+            -- Restore the stock values for item 98 (fixed row _ItemId=99).
+            if entry.name == "_TextType" then new_value = 5 end
+            if entry.name == "_Window" then new_value = false end
+            if entry.name == "_Eatable" then new_value = false end
+            if entry.name == "_Heal" then new_value = false end
+            if entry.name == "_EnableOnRaptor" then new_value = false end
+        end
+
+        local w_ok, how = write_field(data, entry.name, new_value)
+        if not w_ok then
+            log.error(string.format(
+                "[mhws-eatshit] write failed field=%s value=%s err=%s",
+                entry.name, tostring(new_value), tostring(how)))
+        else
+            local after = read_field(data, entry.name)
+            log.info(string.format(
+                "[mhws-eatshit] write field=%s via=%s set=%s readback=%s %s",
+                entry.name, tostring(how), tostring(new_value), tostring(after),
+                (tostring(after) == tostring(new_value)) and "OK" or "MISMATCH"))
+        end
+    end
+
+    local after_parts = {}
+    for _, entry in ipairs(TARGET_FIELDS) do
+        after_parts[#after_parts + 1] = string.format(
+            "%s=%s", entry.name, tostring(read_field(data, entry.name)))
+    end
+    log.info("[mhws-eatshit] item 98 after: " .. table.concat(after_parts, " "))
+    log.info("[mhws-eatshit] done - open the item bar and check the 狩猎道具 tab")
+end)

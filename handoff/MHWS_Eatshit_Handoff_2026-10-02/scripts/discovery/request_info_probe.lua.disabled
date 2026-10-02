@@ -1,0 +1,126 @@
+local done = false
+local frame_count = 0
+local started_at = os.clock()
+
+local function safe(fn, ...)
+    local result = { pcall(fn, ...) }
+    if not result[1] then
+        return false, tostring(result[2])
+    end
+    return true, result[2]
+end
+
+local function matches(name)
+    return string.match(string.lower(name), "item")
+        or string.match(string.lower(name), "use")
+        or string.match(string.lower(name), "request")
+        or string.match(string.lower(name), "pouch")
+        or string.match(string.lower(name), "action")
+end
+
+local function inspect(label, object)
+    if object == nil then
+        log.info("[mhws-eatshit] REQUESTINFO " .. label .. " nil")
+        return
+    end
+    local ok, type_def = safe(function()
+        return object:get_type_definition()
+    end)
+    if not ok or type_def == nil then
+        return
+    end
+
+    local name_ok, type_name = safe(function()
+        return type_def:get_full_name()
+    end)
+    log.info(string.format(
+        "[mhws-eatshit] REQUESTINFO %s type=%s",
+        label,
+        tostring(name_ok and type_name or "<unknown>")
+    ))
+
+    local fields_ok, fields = safe(function()
+        return type_def:get_fields()
+    end)
+    if fields_ok and fields ~= nil then
+        for _, field in ipairs(fields) do
+            local field_ok, field_name = safe(function()
+                return field:get_name()
+            end)
+            if field_ok and field_name ~= nil and matches(field_name) then
+                local value_ok, value = safe(function()
+                    return object:get_field(field_name)
+                end)
+                log.info(string.format(
+                    "[mhws-eatshit] REQUESTINFO %s field=%s ok=%s value=%s",
+                    label,
+                    tostring(field_name),
+                    tostring(value_ok),
+                    tostring(value)
+                ))
+            end
+        end
+    end
+
+    local methods_ok, methods = safe(function()
+        return type_def:get_methods()
+    end)
+    if methods_ok and methods ~= nil then
+        for _, method in ipairs(methods) do
+            local method_ok, method_name = safe(function()
+                return method:get_name()
+            end)
+            if method_ok and method_name ~= nil and matches(method_name) then
+                log.info(string.format(
+                    "[mhws-eatshit] REQUESTINFO %s method=%s",
+                    label,
+                    tostring(method_name)
+                ))
+            end
+        end
+    end
+end
+
+re.on_frame(function()
+    if done then
+        return
+    end
+    frame_count = frame_count + 1
+    if frame_count % 30 ~= 0 then
+        return
+    end
+    if os.clock() - started_at > 600 then
+        done = true
+        log.info("[mhws-eatshit] REQUESTINFO timeout")
+        return
+    end
+
+    local ok, manager = safe(function()
+        return sdk.get_managed_singleton("app.PlayerManager")
+    end)
+    if not ok or manager == nil then
+        return
+    end
+    local master_ok, master = safe(function()
+        return manager:call("getMasterPlayer")
+    end)
+    if not master_ok or master == nil then
+        return
+    end
+    local character_ok, character = safe(function()
+        return master:call("get_Character")
+    end)
+    if not character_ok or character == nil then
+        return
+    end
+
+    done = true
+    log.info("[mhws-eatshit] REQUESTINFO player acquired")
+    inspect("HunterCharacter", character)
+    local info_ok, info = safe(function()
+        return character:get_field("_UseItemRequestInfo")
+    end)
+    if info_ok and info ~= nil then
+        inspect("UseItemRequestInfo", info)
+    end
+end)

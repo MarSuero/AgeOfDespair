@@ -1,0 +1,351 @@
+-- mhws-eatshit gate probe v3 (read-only)
+--
+-- Goal: read the native availability/use gate for public item ID 98
+-- (怪物的粪, fixed ItemData row _ItemId=99) and record which method rejects it.
+--
+-- SAFETY: read-only. No field assignment, no action request, no item mutation,
+--         no save write. Every call is wrapped; failures are logged, not raised.
+--
+-- Why v3 exists (defects found by reading the installed _CatLib library):
+--
+--   Defect 1 - v1/v2 called methods as `method(nil, id)`.
+--     _CatLib/sdk.lua:96 shows the verified form is `method:call(nil, ...)`.
+--     The bare `method(...)` form is not the documented invocation path.
+--
+--   Defect 2 - v2 could not reach instance-method gates.
+--     Its only fallback for non-static methods was
+--     `sdk.get_managed_singleton(type_name)`, which cannot resolve
+--     app.HunterCharacter because that type is an entity, not a singleton.
+--     _CatLib/fsm.lua:33 and _CatLib/game/player.lua:48-61 show the verified
+--     guarded chain instead.
+--
+--   Defect 3 - v2 read enum members as `fields:get_element(i)` over 0..n-1
+--     without checking is_static().
+--     _CatLib/utils.lua:168-196 shows enum members live on static fields and
+--     are read with `ipairs(fields)` + `field:is_static()` +
+--     `field:get_data(nil)`.
+--
+-- v3 is deliberately self-contained: it requires no _CatLib module, so it
+-- cannot break if that library changes, but it follows the same verified idioms.
+
+local REPORTED = false
+local TIMEOUT_FRAMES = 3600   -- hard cap; report partial data rather than nothing
+local MIN_FRAMES = 300        -- do not sample during initial load
+local frame_count = 0
+
+local PROBE_IDS = { 4, 98, 99, 100 }
+
+-- Types named in analysis/static_gate_status.md plus the type confirmed by
+-- analysis/native_gate_static_evidence.md.
+local GATE_TYPES = {
+    "app.ItemUtil",
+    "app.ItemDef",
+    "app.HunterItemActionTable",
+    "app.HunterCharacter",
+}
+
+-- Gate methods from the contiguous binary name cluster, plus the previously
+-- recorded helpers. addDisabledItem and the canPut* family are new in this pass.
+local GATE_METHODS = {
+    "isAvailableItem",
+    "canUseItem",
+    "notUseItem",
+    "checkNotUseItem_ItemWide",
+    "checkNotUseItem_ItemWide_NearOtherPl",
+    "addDisabledItem",
+    "isJudgeItem",
+    "isOpenMenuItem",
+    "isDisableAtRidingItem",
+    "getItemActionTypeFromItemID",
+    "canPutMeat",
+    "canPutBomb",
+    "canPutTrap",
+    "canUseBonfire",
+}
+
+local function safe(fn, ...)
+    local results = { pcall(fn, ...) }
+    if not results[1] then
+        return false, tostring(results[2])
+    end
+    return true, results[2], results[3], results[4]
+end
+
+local function describe(value)
+    if value == nil then
+        return "nil"
+    end
+    local ok, definition = safe(function()
+        return value:get_type_definition()
+    end)
+    if ok and definition ~= nil then
+        local name_ok, name = safe(function()
+            return definition:get_full_name()
+        end)
+        if name_ok and name ~= nil then
+            return tostring(value) .. " <" .. tostring(name) .. ">"
+        end
+    end
+    return tostring(value)
+end
+
+-- Follows _CatLib/game/player.lua:48-61: guard every step of the chain.
+-- Returns nil (never raises) when the player is not available yet.
+local function get_player_character()
+    local ok, manager = safe(function()
+        return sdk.get_managed_singleton("app.PlayerManager")
+    end)
+    if not ok or manager == nil then
+        return nil, "PlayerManager unavailable"
+    end
+
+    local info_ok, info = safe(function()
+        return manager:call("getMasterPlayer")
+    end)
+    if not info_ok or info == nil then
+        return nil, "getMasterPlayer returned nil"
+    end
+
+    local char_ok, character = safe(function()
+        return info:call("get_Character")
+    end)
+    if not char_ok or character == nil then
+        return nil, "get_Character returned nil"
+    end
+
+    return character, "ok"
+end
+
+-- Resolve the receiver for a type: a real instance when one is reachable,
+-- otherwise nil for genuinely static receivers.
+local function resolve_receiver(type_name)
+    if type_name == "app.HunterCharacter" then
+        local character, reason = get_player_character()
+        if character == nil then
+            return nil, "instance_unavailable:" .. tostring(reason)
+        end
+        return character, "player_character"
+    end
+
+    local ok, singleton = safe(function()
+        return sdk.get_managed_singleton(type_name)
+    end)
+    if ok and singleton ~= nil then
+        return singleton, "singleton"
+    end
+
+    return nil, "no_receiver"
+end
+
+local function log_method_info(type_name, method_name)
+    local type_ok, definition = safe(function()
+        return sdk.find_type_definition(type_name)
+    end)
+    if not type_ok or definition == nil then
+        log.info(string.format(
+            "[mhws-eatshit] gate type=%s method=%s status=type_missing",
+            type_name, method_name))
+        return nil
+    end
+
+    local method_ok, method = safe(function()
+        return definition:get_method(method_name)
+    end)
+    if not method_ok or method == nil then
+        log.info(string.format(
+            "[mhws-eatshit] gate type=%s method=%s status=method_missing",
+            type_name, method_name))
+        return nil
+    end
+
+    local sig_ok, signature = safe(function()
+        return method:get_full_name()
+    end)
+    local static_ok, is_static = safe(function()
+        return method:is_static()
+    end)
+    local param_ok, params = safe(function()
+        return method:get_param_types()
+    end)
+
+    local param_count = "?"
+    if param_ok and params ~= nil then
+        local count_ok, count = safe(function()
+            return params:get_size()
+        end)
+        if count_ok then
+            param_count = tostring(count)
+        end
+    end
+
+    log.info(string.format(
+        "[mhws-eatshit] gate type=%s method=%s status=found static=%s params=%s sig=%s",
+        type_name, method_name,
+        tostring(static_ok and is_static or "?"),
+        param_count,
+        tostring(sig_ok and signature or "<unavailable>")))
+
+    return method, is_static
+end
+
+local function call_method(method_name, method, is_static, receiver, receiver_kind, item_id)
+    -- Static method: verified form from _CatLib/sdk.lua:96 is call(nil, ...).
+    if is_static == true then
+        local ok, result = safe(function()
+            return method:call(nil, item_id)
+        end)
+        log.info(string.format(
+            "[mhws-eatshit] gate call=%s id=%d mode=static ok=%s result=%s",
+            method_name, item_id, tostring(ok), describe(ok and result or nil)))
+        return
+    end
+
+    -- Instance method: needs a real receiver.
+    if receiver == nil then
+        log.info(string.format(
+            "[mhws-eatshit] gate call=%s id=%d mode=instance skipped=%s",
+            method_name, item_id, tostring(receiver_kind)))
+        return
+    end
+
+    local ok, result = safe(function()
+        return method:call(receiver, item_id)
+    end)
+    log.info(string.format(
+        "[mhws-eatshit] gate call=%s id=%d mode=instance receiver=%s ok=%s result=%s",
+        method_name, item_id, tostring(receiver_kind),
+        tostring(ok), describe(ok and result or nil)))
+end
+
+-- Enum reading follows _CatLib/utils.lua:168-196 exactly:
+-- iterate with ipairs, keep only static fields, read with get_data(nil).
+local function log_enum_members(type_name)
+    local type_ok, definition = safe(function()
+        return sdk.find_type_definition(type_name)
+    end)
+    if not type_ok or definition == nil then
+        log.info(string.format("[mhws-eatshit] enum type=%s status=type_missing", type_name))
+        return
+    end
+
+    local fields_ok, fields = safe(function()
+        return definition:get_fields()
+    end)
+    if not fields_ok or fields == nil then
+        log.info(string.format("[mhws-eatshit] enum type=%s status=fields_unavailable", type_name))
+        return
+    end
+
+    local count = 0
+    for _, field in ipairs(fields) do
+        local static_ok, is_static = safe(function()
+            return field:is_static()
+        end)
+        if static_ok and is_static then
+            local name_ok, name = safe(function()
+                return field:get_name()
+            end)
+            local value_ok, value = safe(function()
+                return field:get_data(nil)
+            end)
+            if name_ok and name ~= nil then
+                count = count + 1
+                log.info(string.format(
+                    "[mhws-eatshit] enum type=%s member=%s value=%s",
+                    type_name, tostring(name),
+                    tostring(value_ok and value or "<unreadable>")))
+            end
+        end
+    end
+
+    log.info(string.format(
+        "[mhws-eatshit] enum type=%s status=done static_member_count=%d",
+        type_name, count))
+end
+
+local function run_report(receiver, receiver_kind)
+    log.info(string.format(
+        "[mhws-eatshit] gate probe v3 starting receiver=%s", tostring(receiver_kind)))
+
+    for _, type_name in ipairs(GATE_TYPES) do
+        local type_ok, definition = safe(function()
+            return sdk.find_type_definition(type_name)
+        end)
+        log.info(string.format(
+            "[mhws-eatshit] gate type=%s resolved=%s",
+            type_name, tostring(type_ok and definition ~= nil)))
+    end
+
+    -- Enums confirmed present in the RSZ dump by static analysis.
+    pcall(log_enum_members, "app.ItemUtil.STOCK_DISABLE_TYPE")
+    pcall(log_enum_members, "app.ItemUtil.STOCK_TYPE")
+
+    for _, type_name in ipairs(GATE_TYPES) do
+        -- Resolve the receiver once per type, not once per method.
+        local type_receiver, type_receiver_kind = resolve_receiver(type_name)
+        if type_name == "app.HunterCharacter" and receiver ~= nil then
+            type_receiver = receiver
+            type_receiver_kind = receiver_kind
+        end
+
+        for _, method_name in ipairs(GATE_METHODS) do
+            -- Isolate every type/method pair so one failure cannot stop the rest.
+            local pair_ok, pair_err = pcall(function()
+                local method, is_static = log_method_info(type_name, method_name)
+                if method ~= nil then
+                    for _, item_id in ipairs(PROBE_IDS) do
+                        call_method(method_name, method, is_static,
+                            type_receiver, type_receiver_kind, item_id)
+                    end
+                end
+            end)
+            if not pair_ok then
+                log.error(string.format(
+                    "[mhws-eatshit] gate type=%s method=%s status=probe_error error=%s",
+                    type_name, method_name, tostring(pair_err)))
+            end
+        end
+    end
+
+    log.info("[mhws-eatshit] gate probe v3 finished")
+end
+
+re.on_frame(function()
+    if REPORTED then
+        return
+    end
+
+    frame_count = frame_count + 1
+    if frame_count < MIN_FRAMES then
+        return
+    end
+
+    -- Preferred: sample once the player character is reachable, because the
+    -- instance-method gates need a real receiver.
+    local character, reason = get_player_character()
+    local timed_out = frame_count >= TIMEOUT_FRAMES
+
+    if character == nil and not timed_out then
+        return
+    end
+
+    REPORTED = true
+    if character == nil then
+        -- Timeout: still report the type-level facts rather than nothing.
+        log.info(string.format(
+            "[mhws-eatshit] gate probe v3 timeout frame=%d reason=%s",
+            frame_count, tostring(reason)))
+        local ok, err = pcall(run_report, nil, "timeout_no_player")
+        if not ok then
+            log.error("[mhws-eatshit] gate probe v3 failed: " .. tostring(err))
+        end
+        return
+    end
+
+    log.info(string.format(
+        "[mhws-eatshit] gate probe v3 player acquired frame=%d", frame_count))
+    local ok, err = pcall(run_report, character, "player_character")
+    if not ok then
+        log.error("[mhws-eatshit] gate probe v3 failed: " .. tostring(err))
+    end
+end)

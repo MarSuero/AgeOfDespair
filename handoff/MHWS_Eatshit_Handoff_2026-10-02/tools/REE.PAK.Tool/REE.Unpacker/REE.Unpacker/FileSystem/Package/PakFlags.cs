@@ -1,0 +1,34 @@
+﻿using System;
+
+namespace REE.Unpacker
+{
+    [Flags]
+    public enum Compression : Int32
+    {
+        NONE = 0,
+        DEFLATE = 1,
+        ZSTD = 2,
+        UNKNOWN = 12,
+    }
+
+    public enum Encryption : Int32
+    {
+        None = 0,
+        Type_1 = 0x1, // pkc_key::c1n & pkc_key::c1d
+        Type_2 = 0x2, // pkc_key::c2n & pkc_key::c2d
+        Type_3 = 0x3, // pkc_key::c3n & pkc_key::c3d
+        Type_4 = 0x4, // pkc_key::c4n & pkc_key::c4d
+        Type_Invalid = 0x5,
+    }
+
+    public enum Features : Int16
+    {
+        NONE = 0,
+        ENCRYPTED_RESOURCES = 8,
+        DLC_EXTRA_DATA1 = 12, // empty Integer + 01 02 00 57 57
+        EXTRA_DATA = 24, // empty Integer
+        CHUNKED_RESOURCES = 40,
+        DLC_EXTRA_DATA2 = 44, // same as DLC_EXTRA_DATA1
+        DD2_EXTRA_FLAG = 104, // DD2 chunked table * 16
+    }
+}

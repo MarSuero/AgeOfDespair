@@ -1,0 +1,308 @@
+# Reference: https://build-cpp.github.io/cmkr/cmake-toml
+# to build:
+# > cmake -B build
+# > cmake --build build --config Release
+[project]
+name = "reframework"
+languages = ["CXX", "C", "CSharp"]
+cmake-after = """
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+
+# Disable exceptions
+# string(REGEX REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+set(ASMJIT_STATIC ON CACHE BOOL "" FORCE)
+set(DYNAMIC_LOADER ON CACHE BOOL "" FORCE) # OpenXR
+set(BUILD_TOOLS OFF CACHE BOOL "" FORCE) # DirectXTK
+set(SAFETYHOOK_FETCH_ZYDIS ON)
+set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE) # Freetype
+
+if ("${CMAKE_BUILD_TYPE}" MATCHES "Release")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MT")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MT")
+
+    # Statically compile runtime
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+    string(REGEX REPLACE "/MD" "/MT" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+    
+    message(NOTICE "Building in Release mode")
+endif()
+
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+set(NUGET_PACKAGES_DIR "$ENV{NUGET_PACKAGES}")
+
+# If NUGET_PACKAGES_DIR is not set, fall back to the default location
+if(NOT NUGET_PACKAGES_DIR)
+    if(WIN32)
+        set(DEFAULT_NUGET_PATH "$ENV{USERPROFILE}/.nuget/packages")
+    else()
+        set(DEFAULT_NUGET_PATH "$ENV{HOME}/.nuget/packages")
+    endif()
+    set(NUGET_PACKAGES_DIR ${DEFAULT_NUGET_PATH})
+endif()
+"""
+
+[options]
+DEVELOPER_MODE = { value = true }
+REF_BUILD_FRAMEWORK = { value = true }
+REF_BUILD_DEPENDENCIES = { value = true }
+
+[conditions]
+developer-mode-cond = "DEVELOPER_MODE"
+build-framework = "REF_BUILD_FRAMEWORK AND CMAKE_SIZEOF_VOID_P EQUAL 8"
+build-framework-dependencies = "REF_BUILD_DEPENDENCIES AND CMAKE_SIZEOF_VOID_P EQUAL 8"
+
+[fetch-content.asmjit]
+git = "https://github.com/asmjit/asmjit.git"
+tag = "2a706fd2ba355808cada31ac1eed8ce28caa6b37"
+
+[fetch-content.openxr]
+git = "https://github.com/KhronosGroup/OpenXR-SDK"
+tag = "458984d7f59d1ae6dc1b597d94b02e4f7132eaba"
+
+[fetch-content.directxtk]
+git = "https://github.com/microsoft/DirectXTK"
+tag = "f5026eb34e7053b1aff325d38db107703f394974"
+
+[fetch-content.directxtk12]
+git = "https://github.com/microsoft/DirectXTK12"
+tag = "be5dfc7e391aefaa4eeab8e8a08f7e2669e56cbb"
+
+[target.spdlog]
+cmake-after="""
+if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.35)
+    target_compile_options(DirectXTK PRIVATE /Zc:templateScope-)
+    target_compile_options(DirectXTK12 PRIVATE /Zc:templateScope-)
+endif()
+"""
+type = "static"
+sources = ["dependencies/spdlog/src/*.cpp"]
+include-directories = ["dependencies/spdlog/include"]
+compile-definitions = ["SPDLOG_COMPILED_LIB"]
+condition = "build-framework-dependencies"
+alias = "spdlog::spdlog"
+
+
+[target.glm_static]
+type = "static"
+sources = ["dependencies/glm/glm/**.cpp"]
+include-directories = ["dependencies/glm"]
+condition = "build-framework-dependencies"
+
+[target.minhook]
+type = "static"
+sources = ["dependencies/minhook/src/**.c"]
+include-directories = [
+    "dependencies/minhook/include",
+    "dependencies/minhook/src/hde",
+]
+condition = "build-framework-dependencies"
+
+[fetch-content.safetyhook]
+git = "https://github.com/cursey/safetyhook"
+tag = "b046e123dc69821f2c375161e0adef3c6d9c9db4"
+
+[fetch-content.freetype]
+git = "https://github.com/freetype/freetype"
+tag = "f1cd6dbfa0c98f352b698448f40ac27e8fb3832e"
+
+[target.imgui]
+type = "static"
+sources = [
+    "dependencies/imgui/*.cpp",
+    "dependencies/imgui/misc/freetype/imgui_freetype.cpp",
+]
+include-directories = [
+    "dependencies/imgui",
+    "dependencies/imgui/misc/freetype",
+    "src/re2-imgui"]
+compile-definitions = [
+    "IMGUI_USER_CONFIG=\"${CMAKE_CURRENT_SOURCE_DIR}/src/re2-imgui/re2_imconfig.hpp\"",
+]
+link-libraries = [
+    "freetype"
+]
+condition = "build-framework"
+
+[target.imguizmo]
+type = "static"
+sources = ["dependencies/imguizmo/*.cpp"]
+include-directories = ["dependencies/imgui", "dependencies/imguizmo", "src/re2-imgui"]
+compile-definitions = [
+    "IMGUI_USER_CONFIG=\"${CMAKE_CURRENT_SOURCE_DIR}/src/re2-imgui/re2_imconfig.hpp\"",
+]
+condition = "build-framework"
+
+[target.imnodes]
+type = "static"
+sources = ["dependencies/imnodes/*.cpp"]
+include-directories = ["dependencies/imnodes"]
+condition = "build-framework"
+link-libraries = ["imgui"]
+
+[target.openvr]
+type = "interface"
+include-directories = ["dependencies/openvr/headers"]
+link-libraries = [
+    "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/openvr/lib/win64/openvr_api.lib",
+]
+cmake-after = """
+file(COPY dependencies/openvr/lib/win64/openvr_api.lib DESTINATION ${CMAKE_BINARY_DIR}/lib)
+file(COPY dependencies/openvr/bin/win64/openvr_api.dll DESTINATION ${CMAKE_BINARY_DIR}/bin)
+"""
+condition = "build-framework"
+
+[target.lua]
+type = "static"
+sources = ["dependencies/lua/src/*.c"]
+include-directories = ["dependencies/lua/src"]
+condition = "build-framework"
+
+[target.sol2]
+type = "interface"
+include-directories = ["dependencies/sol2/single/include"]
+condition = "build-framework"
+
+[target.nlohmann_json]
+type = "interface"
+include-directories = ["dependencies/nlohmann"]
+condition = "build-framework"
+
+[fetch-content.bddisasm]
+git = "https://github.com/bitdefender/bddisasm"
+tag = "70db095765ab2066dd88dfb7bbcc42259ed167c5"
+
+[fetch-content.kananlib]
+git = "https://github.com/cursey/kananlib"
+tag = "43cb5353615dcbc5d4945b1b9ab685b11e8b0d37"
+
+[target.utility]
+type = "static"
+sources = ["shared/utility/**.cpp", "shared/utility/**.c"]
+headers = ["shared/utility/**.hpp", "shared/utility/**.h"]
+compile-options = ["/EHa"]
+compile-features = ["cxx_std_23"]
+link-libraries = [
+    "spdlog",
+    "minhook",
+    "safetyhook",
+    "kananlib"
+]
+
+# ── Single unified SDK (replaces all per-game SDK targets) ──
+[target.REFrameworkSDK]
+type = "static"
+sources = ["shared/sdk/**.cpp", "shared/sdk/**.c"]
+headers = ["shared/sdk/**.hpp", "shared/sdk/**.h"]
+include-directories = ["shared/", "include/"]
+compile-options = ["/EHa"]
+compile-features = ["cxx_std_23"]
+compile-definitions = ["REFRAMEWORK_UNIVERSAL"]
+link-libraries = [
+    "glm_static",
+    "spdlog"
+]
+private-link-libraries = [
+    "utility"
+]
+condition = "build-framework"
+
+# ── Single unified DLL (replaces all per-game targets) ──
+[target.REFramework]
+condition = "build-framework"
+type = "shared"
+sources = ["src/**.cpp", "src/**.c"]
+headers = ["src/**.hpp", "src/**.h"]
+include-directories = ["shared/", "src/", "include/", "${OPENXR_SOURCE_DIR}/src"]
+link-directories = ["dependencies/openvr/lib/win64/"]
+compile-options = ["/GS-", "/bigobj", "/EHa"]
+compile-features = ["cxx_std_23"]
+compile-definitions = ["REFRAMEWORK_UNIVERSAL", "REFRAMEWORK_EXPORTS", "CIMGUI_VARGS0"]
+developer-mode-cond.compile-definitions = ["DEVELOPER"]
+link-libraries = [
+    "REFrameworkSDK",
+    "utility",
+    "asmjit::asmjit",
+    "nlohmann_json",
+    "spdlog",
+    "lua",
+    "sol2",
+    "imgui",
+    "imguizmo",
+    "imnodes",
+    "minhook",
+    "d3d11",
+    "glm_static",
+    "shlwapi",
+    "openvr",
+    "openxr_loader",
+    "delayimp",
+    "DirectXTK",
+    "DirectXTK12"
+]
+cmake-before="""
+set_source_files_properties(
+    "src/cimgui/cimgui.cpp"
+    PROPERTIES COMPILE_DEFINITIONS
+        "igTreeNode_Str=igTreeNode_Str_cimgui_generated;
+         igTreeNode_StrStr=igTreeNode_StrStr_cimgui_generated;
+         igTreeNode_StrStr0=igTreeNode_StrStr0_cimgui_generated;
+         igTreeNodeV_Str=igTreeNodeV_Str_cimgui_generated;
+         igTreeNodeEx_Str=igTreeNodeEx_Str_cimgui_generated;
+         igTreeNodeEx_StrStr=igTreeNodeEx_StrStr_cimgui_generated;
+         igTreeNodeEx_StrStr0=igTreeNodeEx_StrStr0_cimgui_generated;
+         igTreeNodeExV_Str=igTreeNodeExV_Str_cimgui_generated;
+         igCollapsingHeader_TreeNodeFlags=igCollapsingHeader_TreeNodeFlags_cimgui_generated;
+         igCollapsingHeader_BoolPtr=igCollapsingHeader_BoolPtr_cimgui_generated"
+)
+"""
+cmake-after="""
+add_custom_command(
+    TARGET REFramework PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo "Generating commit hash..."
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/MakeCommitHash.bat
+)
+"""
+
+[target.REFramework.properties]
+OUTPUT_NAME = "dinput8"
+LINK_FLAGS = "/DELAYLOAD:openvr_api.dll /DELAYLOAD:openxr_loader.dll /DELAYLOAD:d3d11.dll /DELAYLOAD:d3d12.dll /DELAYLOAD:D3DCOMPILER_47.dll"
+RUNTIME_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/bin/REFramework"
+RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/bin/REFramework"
+LIBRARY_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/lib/REFramework"
+LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/lib/REFramework"
+ARCHIVE_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/lib/REFramework"
+ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/lib/REFramework"
+
+[template.plugin]
+type = "shared"
+include-directories = ["include/"]
+compile-features = ["cxx_std_23"]
+condition = "build-framework"
+
+[template.plugin.properties]
+RUNTIME_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/bin/${CMKR_TARGET}"
+RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/bin/${CMKR_TARGET}"
+LIBRARY_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+ARCHIVE_OUTPUT_DIRECTORY_RELEASE = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+ARCHIVE_OUTPUT_DIRECTORY_RELWITHDEBINFO = "${CMAKE_BINARY_DIR}/lib/${CMKR_TARGET}"
+
+[target.example_plugin]
+type = "plugin"
+sources = ["examples/example_plugin/**.cpp", "examples/example_plugin/**.c"]
+headers = ["examples/example_plugin/**.hpp", "examples/example_plugin/**.h"]
+link-libraries = [
+    "lua",
+    "sol2",
+    "imgui"
+]
+
+[target.weapon_stay_big_plugin]
+type = "plugin"
+sources = ["examples/weapon_stay_big_plugin/weapon_stay_big.cpp"]

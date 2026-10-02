@@ -1,0 +1,328 @@
+#include <algorithm>
+
+#include <spdlog/spdlog.h>
+
+#include "utility/Scan.hpp"
+#include "utility/Module.hpp"
+
+#include "RETypeDB.hpp"
+#include "REType.hpp"
+#include "RETypes.hpp"
+#include "GameIdentity.hpp"
+
+#include "REGlobals.hpp"
+
+namespace reframework {
+std::unique_ptr<REGlobals>& get_globals() {
+    static auto globals = std::make_unique<REGlobals>();
+    return globals;
+}
+}
+
+REGlobals::REGlobals() {
+    spdlog::info("REGlobals initialization");
+
+    m_object_list.reserve(2048);
+
+    auto mod = utility::get_executable();
+    auto start = (uintptr_t)mod;
+    auto end = (uintptr_t)start + *utility::get_module_size(mod);
+
+    end -= 0x1000;
+
+    spdlog::info("start: {:x}", start);
+    spdlog::info("end: {:x}", end);
+
+    // generic pattern used for all these globals
+    auto pat = std::string{ "48 8D ? ? ? ? ? 48 B8 00 00 00 00 00 00 00 80" };
+
+    // find all the globals
+    for (auto i = utility::scan(start, end - start, pat); i.has_value(); i = utility::scan(*i + 1, end - (*i + 1), pat)) try {
+        auto ptr = utility::calculate_absolute(*i + 3);
+
+        // Make sure the global is within the module boundaries
+        if (ptr < start || ptr > (end - 8)) {
+            continue;
+        }
+
+        // Make sure the pointer is aligned on an 8-byte boundary.
+        if (ptr == 0 || ((uintptr_t)ptr & (sizeof(void*) - 1)) != 0) {
+            continue;
+        }
+
+        if (IsBadReadPtr((void*)ptr, sizeof(void*))) {
+            continue;
+        }
+
+        auto obj_ptr = (REManagedObject**)ptr;
+
+        if (m_objects.find(obj_ptr) != m_objects.end()) {
+            continue;
+        }
+        
+        m_objects.insert(obj_ptr);
+        m_object_list.insert(obj_ptr);
+    } catch(...) {
+        
+    }
+
+    // Create a list of getter functions instead.
+    // In universal builds, TDB_VER=84 >= 78 is always true at compile time,
+    // so this scan always ran for every game (including DMC5 TDB 67).
+    // The scan is additive — it populates named getters alongside raw pointers.
+    {
+        spdlog::info("Usual pattern for REGlobals not working, falling back to scanning for SingletonBehavior types");
+
+        auto& types = reframework::get_types();
+        auto& type_list = types->get_types();
+
+        size_t i = 0;
+
+        for (auto t : type_list) try {
+            auto name = std::string{t->get_type_name()};
+
+            if (name.find(game_namespace("SingletonBehavior`1")) != std::string::npos ||
+                name.find(game_namespace("SingletonBehaviorRoot`1")) != std::string::npos ||
+                name.find(game_namespace("SnowSingletonBehaviorRoot`1")) != std::string::npos ||
+                name.find(game_namespace("RopewaySingletonBehaviorRoot`1")) != std::string::npos ||
+                name.find(game_namespace("ace.GAElement`1")) != std::string::npos)
+            {
+                const auto type_definition = utility::re_type::get_type_definition(t);
+
+                if (type_definition == nullptr) {
+                    spdlog::info("Failed to get type definition for {}", name);
+                    continue;
+                }
+
+                spdlog::info("Found singleton type: {}", name);
+
+                //using asdf = decltype(m_getters)::value_type::second_type::_Func_class;
+                using Getter = REManagedObject* (*)();
+                auto getter = (Getter)sdk::find_native_method(type_definition, "get_Instance");
+
+                if (getter == nullptr) {
+                    continue;
+                }
+
+                // Get the contained type by grabbing the string between the "`1<"" and the ">""
+                auto type_name = name.substr(name.find("`1<") + 3, name.find(">") - name.find("`1<") - 3);
+
+                if (i++ < 100) {
+                    spdlog::info("{}", type_name);
+                }
+
+                m_getters[type_name] = getter;
+            }
+        } catch(...) {
+            continue;
+        }
+    }
+
+    // Also scan through TDB types for SingletonBehavior inheritance
+    {
+        auto tdb = sdk::RETypeDB::get();
+
+        for (size_t i = 0; i < tdb->get_num_types(); ++i) try {
+            auto type_definition = tdb->get_type(i);
+
+            if (type_definition == nullptr || type_definition->get_name() == nullptr) {
+                continue;
+            }
+            
+            auto high_name = std::string_view{ type_definition->get_name() };
+            
+            for (auto super = type_definition; super != nullptr; super = super->get_parent_type()) {
+                auto name = std::string_view{ super->get_name() };
+
+                if (name.find("SingletonBehavior`1") != std::string::npos ||
+                    name.find("SingletonBehaviorRoot`1") != std::string::npos ||
+                    name.find("SnowSingletonBehaviorRoot`1") != std::string::npos ||
+                    name.find("RopewaySingletonBehaviorRoot`1") != std::string::npos ||
+                    name.find("GAElement`1") != std::string::npos ||
+                    name.find("AppSingleton`1") != std::string::npos)
+                {
+                    if (high_name == name) {
+                        continue; // dont care.
+                    }
+
+                    auto full_name = super->get_full_name();
+
+                    spdlog::info("Found singleton type: {}", high_name.data());
+
+                    using Getter = REManagedObject* (*)();
+                    auto getter = (Getter)sdk::find_native_method(type_definition, "get_Instance");
+
+                    if (getter == nullptr) {
+                        spdlog::warn("Failed to find get_Instance method for {}", high_name.data());
+                        continue;
+                    }
+
+                    // Get the contained type by grabbing the string between the "`1<"" and the ">""
+                    auto type_name = std::string{full_name}.substr(full_name.find("`1<") + 3, full_name.find(">") - full_name.find("`1<") - 3);
+
+                    spdlog::info("{}", type_name);
+
+                    m_getters[type_name] = getter;
+                    break;
+                }
+            }
+        } catch(...) {
+            continue;
+        }
+    }
+
+    spdlog::info("Found {} REGlobals", m_object_list.size());
+    spdlog::info("Found {} getters", m_getters.size());
+
+    spdlog::info("Finished REGlobals initialization");
+}
+
+std::unordered_set<REManagedObject*> REGlobals::get_objects() {
+    std::unordered_set<REManagedObject*> out{};
+
+    if (!m_object_list.empty()) {
+        for (auto obj_ptr : m_object_list) {
+            if (*obj_ptr != nullptr && !IsBadReadPtr(*obj_ptr, sizeof(void*))) {
+                out.insert(*obj_ptr);
+            }
+        }
+    }
+
+    for (auto getter : m_getters) {
+        auto result = getter.second();
+
+        if (result != nullptr) {
+            out.insert(result);
+        }
+    }
+
+    return out;
+}
+
+REType* REGlobals::get_native(std::string_view name) {
+    std::lock_guard _{ m_map_mutex };
+
+    if (m_native_singleton_types.empty()) {
+        refresh_natives();
+    }
+
+    auto it = m_native_singleton_map.find(name.data());
+
+    if (it == m_native_singleton_map.end()) {
+        refresh_natives();
+
+        it = m_native_singleton_map.find(name.data());
+    }
+
+    if (it == m_native_singleton_map.end()) {
+        return nullptr;
+    }
+
+    return it->second;
+}
+
+std::vector<::REType*>& REGlobals::get_native_singleton_types() {
+    if (m_native_singleton_types.empty()) {
+        refresh_natives();
+    }
+
+    return m_native_singleton_types;
+}
+
+REManagedObject* REGlobals::get(std::string_view name) {
+    std::lock_guard _{ m_map_mutex };
+
+    auto get_obj = [&]() -> REManagedObject* {
+        if (m_object_map.empty()) {
+            auto getter = m_getters.find(name.data());
+
+            if (getter != m_getters.end()) {
+                return getter->second();
+            }
+        }
+
+        if (auto it = m_object_map.find(name.data()); it != m_object_map.end()) {
+            return *it->second;
+        }
+
+        return nullptr;
+    };
+
+    auto obj = get_obj();
+
+    // try to refresh the map if the object doesnt exist.
+    // assume the user knows this object exists.
+    if (obj == nullptr) {
+        refresh_map();
+    }
+
+    // try again after refreshing the map
+    return obj == nullptr ? get_obj() : obj;
+}
+
+REManagedObject* REGlobals::operator[](std::string_view name) {
+    return get(name);
+}
+
+void REGlobals::safe_refresh() {
+    std::lock_guard _{ m_map_mutex };
+    refresh_map();
+}
+
+void REGlobals::safe_refresh_native() {
+    std::lock_guard _{m_map_mutex};
+    refresh_natives();
+}
+
+void REGlobals::refresh_natives() {
+    auto& types = reframework::get_types()->get_types();
+
+    m_native_singleton_types.clear();
+
+    for (auto t : types) {
+        if (t == nullptr) {
+            continue;
+        }
+        
+        if (!utility::re_type::is_singleton(t)) {
+            continue;
+        }
+
+        m_native_singleton_types.push_back(t);
+        m_native_singleton_map[t->get_type_name()] = t;
+    }
+
+    std::sort(m_native_singleton_types.begin(), m_native_singleton_types.end(), [](auto a, auto b) {
+        return std::string{ a->get_type_name() } < std::string{ b->get_type_name() };
+    });
+}
+
+void REGlobals::refresh_map() {
+    for (auto obj_ptr : m_objects) {
+        auto obj = *obj_ptr;
+
+        // Make sure the pointer is aligned on an 8-byte boundary.
+        if (obj == nullptr || ((uintptr_t)obj & (sizeof(void*) - 1)) != 0) {
+            continue;
+        }
+
+        if (IsBadReadPtr(obj, REManagedObject::runtime_size())) {
+            continue;
+        }
+
+        auto t = obj->safe_get_type();
+
+        if (t == nullptr || t->get_type_name() == nullptr) {
+            continue;
+        }
+
+        if (m_acknowledged_objects.find(obj_ptr) == m_acknowledged_objects.end()) {
+#ifdef DEVELOPER
+            spdlog::info("{:x}->{:x} ({:s})", (uintptr_t)obj_ptr, (uintptr_t)*obj_ptr, t->get_type_name());
+#endif
+            m_acknowledged_objects.insert(obj_ptr);
+        }
+
+        m_object_map[t->get_type_name()] = obj_ptr;
+    }
+}

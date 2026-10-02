@@ -1,0 +1,289 @@
+-- mhws-eatshit read-only runtime gate probe (v2)
+--
+-- Purpose: read the native availability/use gate for public item ID 98.
+-- Safety: read-only. This script only calls getters and logs results.
+--         It never writes game objects, item data, save data, or action state.
+--
+-- Changes from v1 (scripts/discovery/item_use_readonly_checks.lua.disabled):
+--   * v1 assumed every gate method was static and called method(nil, id).
+--     If the method is an instance method this silently fails or reads garbage.
+--     v2 resolves the owning type, reports static vs instance, and only calls
+--     the method in a form that matches its actual kind.
+--   * v2 adds the names found by static binary analysis:
+--     addDisabledItem, and the app.ItemUtil.STOCK_DISABLE_TYPE enum type.
+--   * v2 logs the full method signature so parameter types are recorded, not guessed.
+--   * v2 counts frames only after the game reports a live player, so it does not
+--     burn its single shot during the title screen.
+
+local REPORTED = false
+local wait_frames = 300
+local frame_count = 0
+
+local PROBE_IDS = { 4, 98, 99, 100 }
+
+-- Types named in analysis/static_gate_status.md plus names confirmed by
+-- analysis/native_gate_static_evidence.md.
+local GATE_TYPES = {
+    "app.ItemUtil",
+    "app.HunterItemActionTable",
+    "app.ItemDef",
+    "app.HunterCharacter",
+}
+
+local GATE_METHODS = {
+    "isAvailableItem",
+    "canUseItem",
+    "notUseItem",
+    "checkNotUseItem_ItemWide",
+    "checkNotUseItem_ItemWide_NearOtherPl",
+    "addDisabledItem",
+    "isJudgeItem",
+    "isOpenMenuItem",
+    "isDisableAtRidingItem",
+    "getItemActionTypeFromItemID",
+}
+
+local function safe(fn, ...)
+    local ok, a, b, c = pcall(fn, ...)
+    if not ok then
+        return false, tostring(a)
+    end
+    return true, a, b, c
+end
+
+local function describe(value)
+    if value == nil then
+        return "nil"
+    end
+    local ok, definition = safe(function()
+        return value:get_type_definition()
+    end)
+    if ok and definition ~= nil then
+        local name_ok, name = safe(function()
+            return definition:get_full_name()
+        end)
+        if name_ok then
+            return tostring(value) .. " <" .. tostring(name) .. ">"
+        end
+    end
+    return tostring(value)
+end
+
+local function log_method_signature(type_name, method_name)
+    local type_ok, definition = safe(function()
+        return sdk.find_type_definition(type_name)
+    end)
+    if not type_ok or definition == nil then
+        log.info(string.format(
+            "[mhws-eatshit] gate type=%s method=%s type_missing=true",
+            type_name, method_name))
+        return nil
+    end
+
+    local method_ok, method = safe(function()
+        return definition:get_method(method_name)
+    end)
+    if not method_ok or method == nil then
+        log.info(string.format(
+            "[mhws-eatshit] gate type=%s method=%s found=false",
+            type_name, method_name))
+        return nil
+    end
+
+    local sig_ok, signature = safe(function()
+        return method:get_full_name()
+    end)
+    local param_ok, params = safe(function()
+        return method:get_param_types()
+    end)
+    local param_count = "?"
+    if param_ok and params ~= nil then
+        local count_ok, count = safe(function()
+            return params:get_size()
+        end)
+        param_count = tostring(count_ok and count or "?")
+    end
+    local is_static = "?"
+    local static_ok, static_flag = safe(function()
+        return method:is_static()
+    end)
+    if static_ok then
+        is_static = tostring(static_flag)
+    end
+
+    log.info(string.format(
+        "[mhws-eatshit] gate type=%s method=%s found=true static=%s params=%s sig=%s",
+        type_name, method_name, is_static, param_count,
+        tostring(sig_ok and signature or "<unavailable>")))
+
+    return method, is_static
+end
+
+local function call_gate(type_name, method_name, method, is_static, item_id)
+    if method == nil then
+        return
+    end
+
+    -- Only call with the receiver form that matches the resolved method kind.
+    -- A static method takes (nil, id); an instance method needs a real object,
+    -- so do not call it here unless a singleton instance is available.
+    if is_static ~= true then
+        local singleton_ok, singleton = safe(function()
+            return sdk.get_managed_singleton(type_name)
+        end)
+        if not singleton_ok or singleton == nil then
+            log.info(string.format(
+                "[mhws-eatshit] gate call=%s id=%d skipped=instance_method_no_singleton",
+                method_name, item_id))
+            return
+        end
+        local ok, result = safe(function()
+            return method(singleton, item_id)
+        end)
+        log.info(string.format(
+            "[mhws-eatshit] gate call=%s id=%d receiver=singleton ok=%s result=%s",
+            method_name, item_id, tostring(ok), describe(ok and result or nil)))
+        return
+    end
+
+    local ok, result = safe(function()
+        return method(nil, item_id)
+    end)
+    log.info(string.format(
+        "[mhws-eatshit] gate call=%s id=%d receiver=nil ok=%s result=%s",
+        method_name, item_id, tostring(ok), describe(ok and result or nil)))
+end
+
+local function log_enum_members(type_name)
+    local type_ok, definition = safe(function()
+        return sdk.find_type_definition(type_name)
+    end)
+    if not type_ok or definition == nil then
+        log.info(string.format("[mhws-eatshit] enum type=%s missing=true", type_name))
+        return
+    end
+    local fields_ok, fields = safe(function()
+        return definition:get_fields()
+    end)
+    if not fields_ok or fields == nil then
+        log.info(string.format("[mhws-eatshit] enum type=%s fields=<unavailable>", type_name))
+        return
+    end
+    local size_ok, size = safe(function()
+        return fields:get_size()
+    end)
+    log.info(string.format(
+        "[mhws-eatshit] enum type=%s field_count=%s",
+        type_name, tostring(size_ok and size or "?")))
+
+    local limit = 64
+    local count_ok, count = safe(function()
+        return fields:get_size()
+    end)
+    local n = (count_ok and count) or 0
+    if n > limit then
+        n = limit
+    end
+    for i = 0, n - 1 do
+        local field_ok, field = safe(function()
+            return fields:get_element(i)
+        end)
+        if field_ok and field ~= nil then
+            local name_ok, name = safe(function()
+                return field:get_name()
+            end)
+            -- Read the raw enum value. get_data can be unreliable for some
+            -- field kinds, so fall back to a plain index read and record
+            -- whichever form succeeded instead of assuming one works.
+            local value_ok, value = safe(function()
+                return field:get_data(nil)
+            end)
+            local value_text
+            if value_ok then
+                value_text = tostring(value)
+            else
+                local idx_ok, idx_value = safe(function()
+                    return field:get_index(nil)
+                end)
+                value_text = idx_ok and tostring(idx_value) or "<unreadable>"
+            end
+            log.info(string.format(
+                "[mhws-eatshit] enum type=%s member=%s value=%s",
+                type_name,
+                tostring(name_ok and name or "?"),
+                value_text))
+        end
+    end
+end
+
+local function run_report()
+    log.info("[mhws-eatshit] read-only gate probe v2 starting")
+
+    for _, type_name in ipairs(GATE_TYPES) do
+        local exists_ok, definition = safe(function()
+            return sdk.find_type_definition(type_name)
+        end)
+        log.info(string.format(
+            "[mhws-eatshit] gate type=%s resolved=%s",
+            type_name,
+            tostring(exists_ok and definition ~= nil)))
+    end
+
+    -- Record enum members for the stock/disable enums found by static analysis.
+    -- Isolated so an enum-shape surprise cannot abort the method probing below.
+    local enum_ok, enum_err = pcall(log_enum_members, "app.ItemUtil.STOCK_DISABLE_TYPE")
+    if not enum_ok then
+        log.error("[mhws-eatshit] enum probe STOCK_DISABLE_TYPE failed: " .. tostring(enum_err))
+    end
+    local enum2_ok, enum2_err = pcall(log_enum_members, "app.ItemUtil.STOCK_TYPE")
+    if not enum2_ok then
+        log.error("[mhws-eatshit] enum probe STOCK_TYPE failed: " .. tostring(enum2_err))
+    end
+
+    for _, type_name in ipairs(GATE_TYPES) do
+        for _, method_name in ipairs(GATE_METHODS) do
+            -- Each type/method pair is isolated: one bad signature lookup must
+            -- not prevent the remaining gate methods from being recorded.
+            local pair_ok, pair_err = pcall(function()
+                local method, is_static = log_method_signature(type_name, method_name)
+                if method ~= nil then
+                    for _, item_id in ipairs(PROBE_IDS) do
+                        call_gate(type_name, method_name, method, is_static, item_id)
+                    end
+                end
+            end)
+            if not pair_ok then
+                log.error(string.format(
+                    "[mhws-eatshit] gate type=%s method=%s probe_failed=%s",
+                    type_name, method_name, tostring(pair_err)))
+            end
+        end
+    end
+
+    log.info("[mhws-eatshit] read-only gate probe v2 finished")
+end
+
+re.on_frame(function()
+    if REPORTED then
+        return
+    end
+
+    frame_count = frame_count + 1
+    if frame_count < wait_frames then
+        return
+    end
+
+    -- Run the report unconditionally once the delay has elapsed.
+    --
+    -- Earlier project probes gated their whole report behind a live
+    -- PlayerManager:getMasterPlayer() chain and produced no output at all
+    -- (see docs/runtime-findings.md, "Final task-runtime probe result").
+    -- Type-level lookups do not need a live player, so gating on one would
+    -- discard the entire run again. Each section below is independently
+    -- protected instead.
+    REPORTED = true
+    local ok, err = pcall(run_report)
+    if not ok then
+        log.error("[mhws-eatshit] read-only gate probe v2 failed: " .. tostring(err))
+    end
+end)

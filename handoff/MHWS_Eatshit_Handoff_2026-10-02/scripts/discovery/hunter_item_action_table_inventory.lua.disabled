@@ -1,0 +1,84 @@
+local completed = false
+local frame_count = 0
+local wait_frames = 300
+
+local type_names = {
+    "app.HunterItemActionTable",
+    "app.ItemDef",
+    "app.ItemUtil",
+    "app.HunterCharacter",
+}
+
+local keywords = {
+    "item", "action", "use", "drink", "tablet", "judge", "type",
+    "wide", "range", "select", "request",
+}
+
+local function matches(name)
+    local lower = string.lower(name)
+    for _, keyword in ipairs(keywords) do
+        if string.find(lower, keyword, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+local function log_type_methods(type_name)
+    local ok, definition = pcall(function()
+        return sdk.find_type_definition(type_name)
+    end)
+    if not ok or definition == nil then
+        log.info("[mhws-eatshit] action-table type=" .. type_name .. " missing")
+        return
+    end
+
+    local methods_ok, methods = pcall(function()
+        return definition:get_methods()
+    end)
+    if not methods_ok or methods == nil then
+        log.info("[mhws-eatshit] action-table type=" .. type_name .. " methods=<error>")
+        return
+    end
+
+    log.info(string.format(
+        "[mhws-eatshit] action-table type=%s method_count=%s",
+        type_name,
+        tostring(#methods)
+    ))
+
+    for _, method in ipairs(methods) do
+        local name_ok, name = pcall(function()
+            return method:get_name()
+        end)
+        if name_ok and name ~= nil and matches(name) then
+            local full_ok, full_name = pcall(function()
+                return method:get_full_name()
+            end)
+            log.info(string.format(
+                "[mhws-eatshit] action-table type=%s method=%s full=%s",
+                type_name,
+                tostring(name),
+                tostring(full_ok and full_name or "<unavailable>")
+            ))
+        end
+    end
+end
+
+re.on_frame(function()
+    if completed then
+        return
+    end
+
+    frame_count = frame_count + 1
+    if frame_count < wait_frames then
+        return
+    end
+
+    completed = true
+    log.info("[mhws-eatshit] read-only action-table type inventory started")
+    for _, type_name in ipairs(type_names) do
+        log_type_methods(type_name)
+    end
+    log.info("[mhws-eatshit] read-only action-table type inventory finished")
+end)

@@ -1,0 +1,86 @@
+local done = false
+local frame_count = 0
+local start_time = os.clock()
+local player = nil
+
+local function safe(fn, ...)
+    local result = { pcall(fn, ...) }
+    if not result[1] then
+        return false, tostring(result[2])
+    end
+    return true, result[2]
+end
+
+local function install()
+    local type_ok, type_def = safe(function()
+        return sdk.find_type_definition("app.HunterCharacter")
+    end)
+    if not type_ok or type_def == nil then
+        return false
+    end
+
+    local method_ok, method = safe(function()
+        return type_def:get_method("set_UsedItemID")
+    end)
+    if not method_ok or method == nil then
+        log.info("[mhws-eatshit] USEDID set_UsedItemID missing")
+        return false
+    end
+
+    sdk.hook(method,
+        function(args)
+            local value = args[3]
+            log.info(string.format(
+                "[mhws-eatshit] USEDID set_UsedItemID value=%s",
+                tostring(value)
+            ))
+        end,
+        function(retval)
+            return retval
+        end
+    )
+
+    log.info("[mhws-eatshit] USEDID hook installed")
+    return true
+end
+
+re.on_frame(function()
+    if done then
+        return
+    end
+    frame_count = frame_count + 1
+    if frame_count % 30 ~= 0 then
+        return
+    end
+    if os.clock() - start_time > 600 then
+        done = true
+        log.info("[mhws-eatshit] USEDID timeout")
+        return
+    end
+
+    if player == nil then
+        local ok, manager = safe(function()
+            return sdk.get_managed_singleton("app.PlayerManager")
+        end)
+        if not ok or manager == nil then
+            return
+        end
+        local master_ok, master = safe(function()
+            return manager:call("getMasterPlayer")
+        end)
+        if not master_ok or master == nil then
+            return
+        end
+        local char_ok, character = safe(function()
+            return master:call("get_Character")
+        end)
+        if not char_ok or character == nil then
+            return
+        end
+        player = character
+        done = install()
+        if done then
+            log.info("[mhws-eatshit] USEDID tracing active")
+        end
+    end
+end)

@@ -1,0 +1,160 @@
+local started = false
+local finished = false
+local frame_count = 0
+local start_clock = os.clock()
+local last_selected = nil
+local call_counts = {}
+
+local function safe(fn, ...)
+    local r = { pcall(fn, ...) }
+    if not r[1] then return false, tostring(r[2]) end
+    return true, r[2]
+end
+
+local function describe(v)
+    if v == nil then return "nil" end
+    local ok, t = safe(function() return v:get_type_definition() end)
+    if ok and t then
+        local n_ok, n = safe(function() return t:get_full_name() end)
+        if n_ok then return tostring(v) .. " <" .. tostring(n) .. ">" end
+    end
+    return tostring(v)
+end
+
+local function matches(name)
+    local s = string.lower(name)
+    return string.find(s, "item", 1, true)
+        or string.find(s, "select", 1, true)
+        or string.find(s, "current", 1, true)
+        or string.find(s, "pouch", 1, true)
+        or string.find(s, "use", 1, true)
+        or string.find(s, "request", 1, true)
+end
+
+local function inspect_item_object(item)
+    if item == nil then
+        log.info("[mhws-eatshit] TRACE6 item_object=nil")
+        return
+    end
+    local ok, td = safe(function() return item:get_type_definition() end)
+    if not ok or not td then return end
+    local n_ok, n = safe(function() return td:get_full_name() end)
+    log.info("[mhws-eatshit] TRACE6 item_object_type=" .. tostring(n_ok and n or "<unknown>"))
+
+    local f_ok, fields = safe(function() return td:get_fields() end)
+    if f_ok and fields then
+        for _, f in ipairs(fields) do
+            local name_ok, name = safe(function() return f:get_name() end)
+            if name_ok and name and matches(name) then
+                local v_ok, value = safe(function() return item:get_field(name) end)
+                log.info(string.format(
+                    "[mhws-eatshit] TRACE6 item_field=%s ok=%s value=%s",
+                    tostring(name), tostring(v_ok), tostring(value)
+                ))
+            end
+        end
+    end
+
+    local m_ok, methods = safe(function() return td:get_methods() end)
+    if m_ok and methods then
+        for _, m in ipairs(methods) do
+            local name_ok, name = safe(function() return m:get_name() end)
+            if name_ok and name and matches(name) then
+                log.info("[mhws-eatshit] TRACE6 item_method=" .. tostring(name))
+            end
+        end
+    end
+end
+
+local function get_character()
+    local ok, manager = safe(function() return sdk.get_managed_singleton("app.PlayerManager") end)
+    if not ok or not manager then return nil end
+    local m_ok, master = safe(function() return manager:call("getMasterPlayer") end)
+    if not m_ok or not master then return nil end
+    local c_ok, character = safe(function() return master:call("get_Character") end)
+    if not c_ok then return nil end
+    return character
+end
+
+local function install_hook(type_name, method_name)
+    local t_ok, td = safe(function() return sdk.find_type_definition(type_name) end)
+    if not t_ok or not td then return end
+    local m_ok, method = safe(function() return td:get_method(method_name) end)
+    if not m_ok or not method then
+        log.info(string.format("[mhws-eatshit] TRACE6 hook_missing=%s.%s", type_name, method_name))
+        return
+    end
+    sdk.hook(method,
+        function(args)
+            local key = type_name .. "." .. method_name
+            call_counts[key] = (call_counts[key] or 0) + 1
+            local n = call_counts[key]
+            if n <= 30 then
+                local parts = {
+                    string.format("[mhws-eatshit] TRACE6 call=%s n=%d", key, n)
+                }
+                for i = 3, 6 do
+                    if args[i] ~= nil then
+                        parts[#parts + 1] = "arg" .. tostring(i - 2) .. "=" .. describe(args[i])
+                    end
+                end
+                log.info(table.concat(parts, " "))
+            end
+        end,
+        function(retval) return retval end
+    )
+    log.info(string.format("[mhws-eatshit] TRACE6 hook_installed=%s.%s", type_name, method_name))
+end
+
+re.on_frame(function()
+    if finished then return end
+    frame_count = frame_count + 1
+    if frame_count % 30 ~= 0 then return end
+    if os.clock() - start_clock > 600 then
+        finished = true
+        log.info("[mhws-eatshit] TRACE6 timeout")
+        return
+    end
+
+    local character = get_character()
+    if not character then return end
+    if not started then
+        started = true
+        log.info("[mhws-eatshit] TRACE6 player_acquired")
+        local item_ok, item = safe(function() return character:call("get_Item") end)
+        if item_ok then inspect_item_object(item) end
+
+        install_hook("app.HunterCharacter", "set_UsedItemID")
+        install_hook("app.HunterCharacter", "changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)")
+        install_hook("app.GUIManager", "requestUseItem")
+        install_hook("app.GUIManager", "receiveGuiActionMessage")
+        install_hook("app.GUIManager", "sendMessageToPL")
+        install_hook("app.GUIManager", "onPlEquipChange()")
+        log.info("[mhws-eatshit] TRACE6 active")
+    end
+
+    local item_ok, item = safe(function() return character:call("get_Item") end)
+    if item_ok and item then
+        local td_ok, td = safe(function() return item:get_type_definition() end)
+        if td_ok and td then
+            local candidates = {
+                "get_CurrentItemID", "get_CurrentItemId", "get_SelectItemID",
+                "get_SelectItemId", "get_SelectedItemID", "get_SelectedItemId",
+                "get_CurrentSelectItemId"
+            }
+            for _, method_name in ipairs(candidates) do
+                local m_ok, method = safe(function() return td:get_method(method_name) end)
+                if m_ok and method then
+                    local v_ok, value = safe(function() return method:call(item) end)
+                    if v_ok and value ~= nil and value ~= last_selected then
+                        last_selected = value
+                        log.info(string.format(
+                            "[mhws-eatshit] TRACE6 selected=%s via=%s",
+                            tostring(value), method_name
+                        ))
+                    end
+                end
+            end
+        end
+    end
+end)

@@ -1,0 +1,332 @@
+-- mhws-eatshit use-path trace probe v5 (read-only, observational)
+--
+-- Goal: find where "press use key with 怪物的粪 selected" fails.
+--
+-- Prior evidence (analysis/gate_probe_v4_results.md):
+--   ItemData flags, item identity, action type, canUseItem, isAvailableItem, and
+--   PAK deployment are all excluded. canUseItem(98) returns true. So the failure
+--   is in the path that turns a use request into an action, or in the UI/pouch
+--   category gate.
+--
+-- Method: observe, do not change state.
+--   * hook the use/success entry points found by static binary scan
+--     (useItem, successItem, onSuccessItem, and requestUseItem)
+--   * log every call with its argument values
+--   * also poll and log which item is currently selected, so a log line can be
+--     tied to "the player was pointing at item 98 at that moment"
+--
+-- SAFETY: this probe never writes game state. Hook pre/post functions only read
+-- arguments, log, and return the original value. It does not call
+-- changeActionRequest, does not set any field, does not touch items or saves.
+--
+-- Verified idioms reused from the installed _CatLib library:
+--   * sdk.hook(method, preFunc, postFunc)            (_CatLib/sdk.lua:241-264)
+--   * hook args layout: args[1]=retval slot, args[2]=this, args[3..]=params
+--                                                    (_CatLib/_mod_template.lua:59-80,
+--                                                     _CatLib/init.lua:420-428)
+--   * thread.get_hook_storage() for pre->post state   (_CatLib/_mod_template.lua:64)
+--   * sdk.to_managed_object(arg)                      (_CatLib/sdk.lua:53-55)
+--   * guarded player chain                            (_CatLib/game/player.lua:48-61)
+
+local START_TIME = os.clock()
+local MAX_SECONDS = 900
+local CHECK_EVERY_FRAMES = 30
+local frame_count = 0
+local hooks_installed = false
+local last_selected = nil
+local call_counts = {}
+-- Some targets (notably canUseItem) are polled by the game every frame. Logging
+-- each call would flood the log, so repeated identical calls are counted and only
+-- the first N of each target are written out in full.
+local MAX_FULL_LOGS_PER_TARGET = 40
+
+local PROBE_IDS = { 4, 98, 99, 100 }
+
+-- Types that plausibly carry the use path. Ownership is unknown from static data
+-- (the RSZ dump has no methods), so each is probed and the result is logged.
+local HOOK_TARGETS = {
+    { type_name = "app.HunterCharacter", method = "useItem" },
+    { type_name = "app.HunterCharacter", method = "successItem" },
+    { type_name = "app.HunterCharacter", method = "onSuccessItem" },
+    { type_name = "app.HunterCharacter", method = "canUseItem" },
+    { type_name = "app.GUIManager", method = "requestUseItem" },
+    { type_name = "app.GUIManager", method = "receiveGuiActionMessage" },
+    { type_name = "app.GUIManager", method = "sendMessageToPL" },
+    { type_name = "app.GUIManager", method = "onPlEquipChange()" },
+    { type_name = "app.HunterCharacter", method = "changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)" },
+}
+
+local function safe(fn, ...)
+    local results = { pcall(fn, ...) }
+    if not results[1] then
+        return false, tostring(results[2])
+    end
+    return true, results[2], results[3], results[4]
+end
+
+local function describe(value)
+    if value == nil then
+        return "nil"
+    end
+    local ok, definition = safe(function()
+        return value:get_type_definition()
+    end)
+    if ok and definition ~= nil then
+        local name_ok, name = safe(function()
+            return definition:get_full_name()
+        end)
+        if name_ok and name ~= nil then
+            return tostring(value) .. " <" .. tostring(name) .. ">"
+        end
+    end
+    return tostring(value)
+end
+
+local function get_player_character()
+    local ok, manager = safe(function()
+        return sdk.get_managed_singleton("app.PlayerManager")
+    end)
+    if not ok or manager == nil then
+        return nil, "PlayerManager unavailable"
+    end
+    local info_ok, info = safe(function()
+        return manager:call("getMasterPlayer")
+    end)
+    if not info_ok or info == nil then
+        return nil, "getMasterPlayer nil"
+    end
+    local char_ok, character = safe(function()
+        return info:call("get_Character")
+    end)
+    if not char_ok or character == nil then
+        return nil, "get_Character nil"
+    end
+    return character, "ok"
+end
+
+-- Read whatever "currently selected item" the game exposes. Each candidate is
+-- tried independently; the first that yields a number is reported.
+local function read_selected_item()
+    local candidates = {
+        { "app.GUIManager", "get_CurrentItemId" },
+        { "app.GUIManager", "get_SelectItemId" },
+        { "app.GUIManager", "get_SelectedItemId" },
+        { "app.GUIManager", "get_CurrentSelectItemId" },
+    }
+    for _, entry in ipairs(candidates) do
+        local type_name, method_name = entry[1], entry[2]
+        local ok, type_def = safe(function()
+            return sdk.find_type_definition(type_name)
+        end)
+        if ok and type_def ~= nil then
+            local m_ok, method = safe(function()
+                return type_def:get_method(method_name)
+            end)
+            local s_ok, singleton = safe(function()
+                return sdk.get_managed_singleton(type_name)
+            end)
+            if m_ok and method ~= nil and s_ok and singleton ~= nil then
+                local c_ok, value = safe(function()
+                    return method:call(singleton)
+                end)
+                if c_ok and value ~= nil then
+                    return value, type_name .. ":" .. method_name
+                end
+            end
+        end
+    end
+    return nil, "no_accessor"
+end
+
+local function install_hook(type_name, method_name)
+    local ok, type_def = safe(function()
+        return sdk.find_type_definition(type_name)
+    end)
+    if not ok or type_def == nil then
+        log.info(string.format(
+            "[mhws-eatshit] hook type=%s method=%s status=type_missing",
+            type_name, method_name))
+        return false
+    end
+
+    local m_ok, method = safe(function()
+        return type_def:get_method(method_name)
+    end)
+    if not m_ok or method == nil then
+        log.info(string.format(
+            "[mhws-eatshit] hook type=%s method=%s status=method_missing",
+            type_name, method_name))
+        return false
+    end
+
+    -- Report the parameter count so the log shows the real arity.
+    local param_count = "?"
+    local p_ok, params = safe(function()
+        return method:get_param_types()
+    end)
+    if p_ok and params ~= nil then
+        local c_ok, count = safe(function()
+            return params:get_size()
+        end)
+        if c_ok then
+            param_count = tostring(count)
+        end
+    end
+
+    local hook_ok, hook_err = safe(function()
+        sdk.hook(method,
+            function(args)
+                -- Observation only. No mutation, no return value change.
+                local h_ok, err = pcall(function()
+                    local key = type_name .. "." .. method_name
+                    call_counts[key] = (call_counts[key] or 0) + 1
+                    local n = call_counts[key]
+
+                    -- Rate limit: log the first N calls plus every 300th after that,
+                    -- so a per-frame caller cannot flood the log.
+                    if n > MAX_FULL_LOGS_PER_TARGET and n % 300 ~= 0 then
+                        return
+                    end
+
+                    local this_obj = nil
+                    local t_ok, t = safe(function()
+                        return sdk.to_managed_object(args[2])
+                    end)
+                    if t_ok then
+                        this_obj = t
+                    end
+
+                    local parts = {
+                        string.format(
+                            "[mhws-eatshit] USEPATH call=%s.%s n=%d elapsed=%.1fs this=%s",
+                            type_name, method_name, n, os.clock() - START_TIME,
+                            describe(this_obj)),
+                    }
+                    -- Log the first few parameter slots that exist.
+                    for i = 3, 6 do
+                        local a_ok, arg = safe(function()
+                            return args[i]
+                        end)
+                        if a_ok and arg ~= nil then
+                            if type_name == "app.HunterCharacter"
+                                and method_name == "changeActionRequest(app.AppActionDef.LAYER, ace.ACTION_ID, System.Boolean)"
+                                and i == 4 then
+                                local action_ok, action_id = safe(function()
+                                    return sdk.to_valuetype(arg, "ace.ACTION_ID")
+                                end)
+                                if action_ok and action_id ~= nil then
+                                    local action_type = sdk.find_type_definition("ace.ACTION_ID")
+                                    local bank_ok, bank = safe(function()
+                                        return sdk.get_native_field(action_id, action_type, "_Category")
+                                    end)
+                                    local index_ok, index = safe(function()
+                                        return sdk.get_native_field(action_id, action_type, "_Index")
+                                    end)
+                                    parts[#parts + 1] = string.format(
+                                        "action_bank=%s action_index=%s",
+                                        tostring(bank_ok and bank or "<error>"),
+                                        tostring(index_ok and index or "<error>")
+                                    )
+                                end
+                            end
+                            parts[#parts + 1] = string.format(
+                                "arg%d=%s", i - 2, describe(arg))
+                        end
+                    end
+                    log.info(table.concat(parts, " "))
+                end)
+                if not h_ok then
+                    log.error(
+                        "[mhws-eatshit] USEPATH hook logging error: " .. tostring(err))
+                end
+            end,
+            function(retval)
+                -- Return the original value untouched.
+                return retval
+            end)
+    end)
+
+    if not hook_ok then
+        log.info(string.format(
+            "[mhws-eatshit] hook type=%s method=%s status=hook_failed error=%s",
+            type_name, method_name, tostring(hook_err)))
+        return false
+    end
+
+    log.info(string.format(
+        "[mhws-eatshit] hook type=%s method=%s status=installed params=%s",
+        type_name, method_name, param_count))
+    return true
+end
+
+local function run_baseline()
+    log.info("[mhws-eatshit] USEPATH baseline starting")
+
+    -- Re-confirm the item facts so this log is self-contained.
+    local def_ok, item_def = safe(function()
+        return sdk.find_type_definition("app.ItemDef")
+    end)
+    if def_ok and item_def ~= nil then
+        local name_ok, name_method = safe(function()
+            return item_def:get_method("NameString(app.ItemDef.ID)")
+        end)
+        if name_ok and name_method ~= nil then
+            for _, item_id in ipairs(PROBE_IDS) do
+                local ok, value = safe(function()
+                    return name_method:call(nil, item_id)
+                end)
+                log.info(string.format(
+                    "[mhws-eatshit] USEPATH baseline NameString id=%d ok=%s value=%s",
+                    item_id, tostring(ok), tostring(ok and value or nil)))
+            end
+        end
+    end
+
+    log.info("[mhws-eatshit] USEPATH baseline finished")
+end
+
+re.on_frame(function()
+    frame_count = frame_count + 1
+
+    if not hooks_installed then
+        if frame_count % CHECK_EVERY_FRAMES ~= 0 then
+            return
+        end
+
+        local player = get_player_character()
+        if player == nil then
+            local elapsed = os.clock() - START_TIME
+            if elapsed >= MAX_SECONDS then
+                log.info(string.format(
+                    "[mhws-eatshit] USEPATH deadline elapsed=%.1fs before hooks", elapsed))
+            end
+            return
+        end
+
+        hooks_installed = true
+        log.info(string.format(
+            "[mhws-eatshit] USEPATH player acquired elapsed=%.1fs frame=%d",
+            os.clock() - START_TIME, frame_count))
+
+        for _, target in ipairs(HOOK_TARGETS) do
+            install_hook(target.type_name, target.method)
+        end
+        run_baseline()
+        log.info("[mhws-eatshit] USEPATH tracing active - press the use key now")
+        return
+    end
+
+    -- After hooks are installed, watch which item is selected so a USEPATH line
+    -- can be tied to the item the player was pointing at.
+    if frame_count % CHECK_EVERY_FRAMES ~= 0 then
+        return
+    end
+
+    local selected, how = read_selected_item()
+    if selected ~= nil and selected ~= last_selected then
+        last_selected = selected
+        log.info(string.format(
+            "[mhws-eatshit] USEPATH selected item=%s via=%s",
+            tostring(selected), tostring(how)))
+    end
+end)

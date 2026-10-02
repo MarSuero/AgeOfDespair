@@ -1,0 +1,70 @@
+local completed = false
+local frame_count = 0
+local wait_frames = 300
+
+local function stringify(value)
+    if value == nil then
+        return "nil"
+    end
+    return tostring(value)
+end
+
+local function lookup(type_name, method_name)
+    local ok, method = pcall(function()
+        return sdk.find_type_definition(type_name):get_method(method_name)
+    end)
+    log.info(string.format(
+        "[mhws-eatshit] item-check lookup type=%s method=%s ok=%s found=%s",
+        type_name,
+        method_name,
+        tostring(ok),
+        tostring(ok and method ~= nil)
+    ))
+    return ok and method or nil
+end
+
+local function call_static(label, method, item_id)
+    if method == nil then
+        return
+    end
+    local ok, result = pcall(function()
+        return method(nil, item_id)
+    end)
+    log.info(string.format(
+        "[mhws-eatshit] item-check call=%s id=%d ok=%s result=%s",
+        label,
+        item_id,
+        tostring(ok),
+        stringify(result)
+    ))
+end
+
+re.on_frame(function()
+    if completed then
+        return
+    end
+
+    frame_count = frame_count + 1
+    if frame_count < wait_frames then
+        return
+    end
+
+    completed = true
+
+    local action_type = lookup(
+        "app.HunterItemActionTable",
+        "getItemActionTypeFromItemID"
+    )
+    local is_available = lookup("app.ItemUtil", "isAvailableItem")
+    local is_judge = lookup("app.ItemUtil", "isJudgeItem")
+    local is_open_menu = lookup("app.ItemUtil", "isOpenMenuItem")
+    local is_disabled_at_ride = lookup("app.ItemUtil", "isDisableAtRidingItem")
+
+    for _, item_id in ipairs({4, 98, 99, 100}) do
+        call_static("getItemActionTypeFromItemID", action_type, item_id)
+        call_static("isAvailableItem", is_available, item_id)
+        call_static("isJudgeItem", is_judge, item_id)
+        call_static("isOpenMenuItem", is_open_menu, item_id)
+        call_static("isDisableAtRidingItem", is_disabled_at_ride, item_id)
+    end
+end)

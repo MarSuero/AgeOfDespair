@@ -1,0 +1,113 @@
+﻿[2026-10-01 12:26:18.044] [REFramework] [info] [mhws-eatshit] gate probe v4 waiting elapsed=1.2s reason=getMasterPlayer returned nil
+[2026-10-01 12:27:44.875] [REFramework] [info] [mhws-eatshit] gate probe v4 player acquired elapsed=88.1s frame=7650
+[2026-10-01 12:27:44.875] [REFramework] [info] [mhws-eatshit] gate probe v4 starting receiver=player_character elapsed=88.1s
+[2026-10-01 12:27:44.876] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil resolved=true
+[2026-10-01 12:27:44.876] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef resolved=true
+[2026-10-01 12:27:44.876] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable resolved=true
+[2026-10-01 12:27:44.876] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter resolved=true
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_DISABLE_TYPE member=NONE value=0
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_DISABLE_TYPE member=ITEM_MAX value=1
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_DISABLE_TYPE member=POUCH_FULL value=2
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_DISABLE_TYPE member=DISABLE_POUCH value=3
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_DISABLE_TYPE member=ITEM_GROUP value=4
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_DISABLE_TYPE member=ERROR value=5
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_DISABLE_TYPE status=done static_member_count=6
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_TYPE member=POUCH value=0
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_TYPE member=BOX value=1
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_TYPE member=BOTH value=2
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_TYPE member=BOTH_POUCH_BOX value=3
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_TYPE member=BOTH_BOX_POUCH value=4
+[2026-10-01 12:27:44.879] [REFramework] [info] [mhws-eatshit] enum type=app.ItemUtil.STOCK_TYPE status=done static_member_count=5
+[2026-10-01 12:27:44.886] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=isAvailableItem status=found static=true params=? sig=<unavailable>
+[2026-10-01 12:27:44.886] [REFramework] [info] [mhws-eatshit] gate call=isAvailableItem id=4 mode=static ok=true result=nil
+[2026-10-01 12:27:44.886] [REFramework] [info] [mhws-eatshit] gate call=isAvailableItem id=98 mode=static ok=true result=nil
+[2026-10-01 12:27:44.886] [REFramework] [info] [mhws-eatshit] gate call=isAvailableItem id=99 mode=static ok=true result=nil
+[2026-10-01 12:27:44.886] [REFramework] [info] [mhws-eatshit] gate call=isAvailableItem id=100 mode=static ok=true result=nil
+[2026-10-01 12:27:44.886] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=canUseItem status=method_missing
+[2026-10-01 12:27:44.886] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=notUseItem status=method_missing
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=checkNotUseItem_ItemWide status=method_missing
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=checkNotUseItem_ItemWide_NearOtherPl status=method_missing
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=addDisabledItem status=method_missing
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=isJudgeItem status=found static=true params=? sig=<unavailable>
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isJudgeItem id=4 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isJudgeItem id=98 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isJudgeItem id=99 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isJudgeItem id=100 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=isOpenMenuItem status=found static=true params=? sig=<unavailable>
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isOpenMenuItem id=4 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isOpenMenuItem id=98 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isOpenMenuItem id=99 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isOpenMenuItem id=100 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=isDisableAtRidingItem status=found static=true params=? sig=<unavailable>
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isDisableAtRidingItem id=4 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isDisableAtRidingItem id=98 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isDisableAtRidingItem id=99 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate call=isDisableAtRidingItem id=100 mode=static ok=true result=nil
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=getItemActionTypeFromItemID status=method_missing
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=canPutMeat status=method_missing
+[2026-10-01 12:27:44.887] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=canPutBomb status=method_missing
+[2026-10-01 12:27:44.888] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=canPutTrap status=method_missing
+[2026-10-01 12:27:44.888] [REFramework] [info] [mhws-eatshit] gate type=app.ItemUtil method=canUseBonfire status=method_missing
+[2026-10-01 12:27:44.888] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=isAvailableItem status=method_missing
+[2026-10-01 12:27:44.888] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=canUseItem status=method_missing
+[2026-10-01 12:27:44.888] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=notUseItem status=method_missing
+[2026-10-01 12:27:44.888] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=checkNotUseItem_ItemWide status=method_missing
+[2026-10-01 12:27:44.888] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=checkNotUseItem_ItemWide_NearOtherPl status=method_missing
+[2026-10-01 12:27:44.888] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=addDisabledItem status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=isJudgeItem status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=isOpenMenuItem status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=isDisableAtRidingItem status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=getItemActionTypeFromItemID status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=canPutMeat status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=canPutBomb status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=canPutTrap status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.ItemDef method=canUseBonfire status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=isAvailableItem status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=canUseItem status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=notUseItem status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=checkNotUseItem_ItemWide status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=checkNotUseItem_ItemWide_NearOtherPl status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=addDisabledItem status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=isJudgeItem status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=isOpenMenuItem status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=isDisableAtRidingItem status=method_missing
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=getItemActionTypeFromItemID status=found static=true params=? sig=<unavailable>
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate call=getItemActionTypeFromItemID id=4 mode=static ok=true result=4
+[2026-10-01 12:27:44.889] [REFramework] [info] [mhws-eatshit] gate call=getItemActionTypeFromItemID id=98 mode=static ok=true result=1
+[2026-10-01 12:27:44.890] [REFramework] [info] [mhws-eatshit] gate call=getItemActionTypeFromItemID id=99 mode=static ok=true result=1
+[2026-10-01 12:27:44.890] [REFramework] [info] [mhws-eatshit] gate call=getItemActionTypeFromItemID id=100 mode=static ok=true result=1
+[2026-10-01 12:27:44.890] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=canPutMeat status=method_missing
+[2026-10-01 12:27:44.890] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=canPutBomb status=method_missing
+[2026-10-01 12:27:44.890] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=canPutTrap status=method_missing
+[2026-10-01 12:27:44.890] [REFramework] [info] [mhws-eatshit] gate type=app.HunterItemActionTable method=canUseBonfire status=method_missing
+[2026-10-01 12:27:44.916] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=isAvailableItem status=method_missing
+[2026-10-01 12:27:44.916] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=canUseItem status=found static=? params=? sig=<unavailable>
+[2026-10-01 12:27:44.916] [REFramework] [info] [mhws-eatshit] gate call=canUseItem id=4 mode=instance receiver=player_character ok=true result=true
+[2026-10-01 12:27:44.916] [REFramework] [info] [mhws-eatshit] gate call=canUseItem id=98 mode=instance receiver=player_character ok=true result=true
+[2026-10-01 12:27:44.916] [REFramework] [info] [mhws-eatshit] gate call=canUseItem id=99 mode=instance receiver=player_character ok=true result=nil
+[2026-10-01 12:27:44.916] [REFramework] [info] [mhws-eatshit] gate call=canUseItem id=100 mode=instance receiver=player_character ok=true result=true
+[2026-10-01 12:27:44.917] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=notUseItem status=method_missing
+[2026-10-01 12:27:44.918] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=checkNotUseItem_ItemWide status=method_missing
+[2026-10-01 12:27:44.918] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=checkNotUseItem_ItemWide_NearOtherPl status=method_missing
+[2026-10-01 12:27:44.919] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=addDisabledItem status=method_missing
+[2026-10-01 12:27:44.919] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=isJudgeItem status=method_missing
+[2026-10-01 12:27:44.920] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=isOpenMenuItem status=method_missing
+[2026-10-01 12:27:44.920] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=isDisableAtRidingItem status=method_missing
+[2026-10-01 12:27:44.921] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=getItemActionTypeFromItemID status=method_missing
+[2026-10-01 12:27:44.921] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=canPutMeat status=method_missing
+[2026-10-01 12:27:44.922] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=canPutBomb status=method_missing
+[2026-10-01 12:27:44.923] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=canPutTrap status=method_missing
+[2026-10-01 12:27:44.924] [REFramework] [info] [mhws-eatshit] gate type=app.HunterCharacter method=canUseBonfire status=method_missing
+[2026-10-01 12:27:44.924] [REFramework] [info] [mhws-eatshit] gate probe v4 finished
+[2026-10-01 12:27:44.924] [REFramework] [info] [mhws-eatshit] baseline isValidItem id=4 ok=true value=true
+[2026-10-01 12:27:44.924] [REFramework] [info] [mhws-eatshit] baseline NameString id=4 ok=true value=秘药
+[2026-10-01 12:27:44.925] [REFramework] [info] [mhws-eatshit] baseline Data id=4 _ItemId=5 _SortId=3 _Type=0 _ItemGroup=0 _TextType=1 _IconType=13 _Eatable=true _Heal=true _Window=true _GetRank=sol.sdk::SystemArray*: 0000000245F3CDA8
+[2026-10-01 12:27:44.925] [REFramework] [info] [mhws-eatshit] baseline isValidItem id=98 ok=true value=true
+[2026-10-01 12:27:44.925] [REFramework] [info] [mhws-eatshit] baseline NameString id=98 ok=true value=怪物的粪
+[2026-10-01 12:27:44.925] [REFramework] [info] [mhws-eatshit] baseline Data id=98 _ItemId=99 _SortId=76 _Type=0 _ItemGroup=0 _TextType=5 _IconType=40 _Eatable=<err> _Heal=<err> _Window=<err> _GetRank=sol.sdk::SystemArray*: 0000000245F3CE48
+[2026-10-01 12:27:44.925] [REFramework] [info] [mhws-eatshit] baseline isValidItem id=99 ok=true value=true
+[2026-10-01 12:27:44.925] [REFramework] [info] [mhws-eatshit] baseline NameString id=99 ok=true value=<COLOR FF0000>#Rejected#</COLOR> Item_IT_100
+[2026-10-01 12:27:44.926] [REFramework] [info] [mhws-eatshit] baseline Data id=99 _ItemId=100 _SortId=5001 _Type=1 _ItemGroup=0 _TextType=0 _IconType=66 _Eatable=<err> _Heal=<err> _Window=<err> _GetRank=sol.sdk::SystemArray*: 0000000245F3CA38
+[2026-10-01 12:27:44.926] [REFramework] [info] [mhws-eatshit] baseline isValidItem id=100 ok=true value=true
+[2026-10-01 12:27:44.926] [REFramework] [info] [mhws-eatshit] baseline NameString id=100 ok=true value=滚成球的粪
+[2026-10-01 12:27:44.926] [REFramework] [info] [mhws-eatshit] baseline Data id=100 _ItemId=101 _SortId=75 _Type=0 _ItemGroup=0 _TextType=5 _IconType=40 _Eatable=<err> _Heal=<err> _Window=<err> _GetRank=sol.sdk::SystemArray*: 0000000245F3CC18

@@ -1,0 +1,10 @@
+D:\mhws-eatshit\tools\REE.PAK.Tool\REE.Packer\REE.Packer\bin\Release\REE.Packer.exe.config
+D:\mhws-eatshit\tools\REE.PAK.Tool\REE.Packer\REE.Packer\bin\Release\REE.Packer.exe
+D:\mhws-eatshit\tools\REE.PAK.Tool\REE.Packer\REE.Packer\bin\Release\REE.Packer.pdb
+D:\mhws-eatshit\tools\REE.PAK.Tool\REE.Packer\REE.Packer\bin\Release\Zstandard.Net.dll
+D:\mhws-eatshit\tools\REE.PAK.Tool\REE.Packer\REE.Packer\bin\Release\System.Buffers.dll
+D:\mhws-eatshit\tools\REE.PAK.Tool\REE.Packer\REE.Packer\obj\Release\REE.Packer.csproj.AssemblyReference.cache
+D:\mhws-eatshit\tools\REE.PAK.Tool\REE.Packer\REE.Packer\obj\Release\REE.Packer.csproj.CoreCompileInputs.cache
+D:\mhws-eatshit\tools\REE.PAK.Tool\REE.Packer\REE.Packer\obj\Release\REE.Packer.csproj.Up2Date
+D:\mhws-eatshit\tools\REE.PAK.Tool\REE.Packer\REE.Packer\obj\Release\REE.Packer.exe
+D:\mhws-eatshit\tools\REE.PAK.Tool\REE.Packer\REE.Packer\obj\Release\REE.Packer.pdb
