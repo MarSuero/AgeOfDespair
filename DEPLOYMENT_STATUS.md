@@ -82,6 +82,10 @@ Prepared but NOT deployed:
     deployed. It targets the action-end boundary instead.
   - Latest action-end candidate was deployed once and rolled back. No project
     file is currently active in the game directory.
+  - Distributable package:
+    `release/MHWS_Eatshit_Usable_0.1.0.zip`
+  - Package scope is item usability only. It excludes all stench probes,
+    stench bridges, metadata bridges, and PAK files.
 
 Known pre-existing autorun files:
 

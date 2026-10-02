@@ -307,6 +307,11 @@ The first ItemData candidate loaded but still did not use. Static review found o
   `successItem`, and `onSuccessItem`. The next behavior candidate uses
   `isSubActionEnd` for `cUseDrinkItem`, then activates `_Stench` only when the
   action reports ended.
+- A distributable release package was created at
+  `release/MHWS_Eatshit_Usable_0.1.0.zip`. It contains only the category Lua,
+  the `notUseItem` bridge, the action bridge, installation instructions, and
+  per-file SHA-256 values. The player-side stench bridge is intentionally
+  excluded.
 - Latest action-end validation did not activate stench. The project is paused
   at the user's request. Review the last action-end bridge logs before making
   another candidate; do not request another launch yet.
